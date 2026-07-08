@@ -7,12 +7,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/malbruk/green-code.git"
+    "url": "https://github.com/malbruk/yes-code.git"
   },
   "bugs": {
-    "url": "https://github.com/malbruk/green-code/issues"
+    "url": "https://github.com/malbruk/yes-code/issues"
   },
-  "homepage": "https://github.com/malbruk/green-code#readme",
+  "homepage": "https://github.com/malbruk/yes-code#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -48,17 +48,17 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "green-code",
+          "id": "yes-code",
           "title": "Yes Code",
           "icon": "media/activity-icon.svg"
         }
       ]
     },
     "views": {
-      "green-code": [
+      "yes-code": [
         {
           "type": "webview",
-          "id": "green-code.chat",
+          "id": "yes-code.chat",
           "name": "Yes Code",
           "icon": "media/activity-icon.svg",
           "contextualTitle": "Yes Code"
@@ -67,113 +67,113 @@
     },
     "commands": [
       {
-        "command": "green-code.openChat",
+        "command": "yes-code.openChat",
         "title": "Open Yes Code",
         "category": "Yes Code",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "green-code.newChat",
+        "command": "yes-code.newChat",
         "title": "New Chat",
         "category": "Yes Code",
         "icon": "$(add)"
       },
       {
-        "command": "green-code.newChatInEditor",
+        "command": "yes-code.newChatInEditor",
         "title": "New Chat in Editor",
         "category": "Yes Code",
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "green-code.stop",
+        "command": "yes-code.stop",
         "title": "Stop",
         "category": "Yes Code",
         "icon": "$(stop-circle)"
       },
       {
-        "command": "green-code.history",
+        "command": "yes-code.history",
         "title": "Show Chat History",
         "category": "Yes Code",
         "icon": "$(history)"
       },
       {
-        "command": "green-code.addSelectionToChat",
+        "command": "yes-code.addSelectionToChat",
         "title": "Add Selection to Yes Code",
         "category": "Yes Code",
         "icon": "$(add)"
       },
       {
-        "command": "green-code.addFileToChat",
+        "command": "yes-code.addFileToChat",
         "title": "Add File to Yes Code",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.explainSelection",
+        "command": "yes-code.explainSelection",
         "title": "Explain Selection",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.fixSelection",
+        "command": "yes-code.fixSelection",
         "title": "Fix Selection with Claude",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.acceptAllEdits",
+        "command": "yes-code.acceptAllEdits",
         "title": "Accept All Edits",
         "category": "Yes Code",
         "icon": "$(check-all)"
       },
       {
-        "command": "green-code.rejectAllEdits",
+        "command": "yes-code.rejectAllEdits",
         "title": "Reject All Edits",
         "category": "Yes Code",
         "icon": "$(discard)"
       },
       {
-        "command": "green-code.acceptEdit",
+        "command": "yes-code.acceptEdit",
         "title": "Accept Edit",
         "category": "Yes Code",
         "icon": "$(check)"
       },
       {
-        "command": "green-code.rejectEdit",
+        "command": "yes-code.rejectEdit",
         "title": "Reject Edit",
         "category": "Yes Code",
         "icon": "$(discard)"
       },
       {
-        "command": "green-code.selectModel",
+        "command": "yes-code.selectModel",
         "title": "Select Model",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.setPermissionMode",
+        "command": "yes-code.setPermissionMode",
         "title": "Set Permission Mode",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.signIn",
+        "command": "yes-code.signIn",
         "title": "Sign In / Set API Key",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.signOut",
+        "command": "yes-code.signOut",
         "title": "Sign Out",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.rewind",
+        "command": "yes-code.rewind",
         "title": "Rewind to Checkpoint",
         "category": "Yes Code",
         "icon": "$(discard)"
       },
       {
-        "command": "green-code.focusInput",
+        "command": "yes-code.focusInput",
         "title": "Focus Chat Input",
         "category": "Yes Code"
       },
       {
-        "command": "green-code.moveView",
+        "command": "yes-code.moveView",
         "title": "Move Chat to Side Drawer…",
         "category": "Yes Code",
         "icon": "$(layout-sidebar-right)"
@@ -181,76 +181,76 @@
     ],
     "keybindings": [
       {
-        "command": "green-code.openChat",
+        "command": "yes-code.openChat",
         "key": "ctrl+escape",
         "mac": "cmd+escape"
       },
       {
-        "command": "green-code.addSelectionToChat",
+        "command": "yes-code.addSelectionToChat",
         "key": "ctrl+alt+k",
         "mac": "cmd+alt+k",
         "when": "editorHasSelection"
       },
       {
-        "command": "green-code.acceptAllEdits",
+        "command": "yes-code.acceptAllEdits",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
-        "when": "green-code.hasPendingEdits"
+        "when": "yes-code.hasPendingEdits"
       },
       {
-        "command": "green-code.newChat",
+        "command": "yes-code.newChat",
         "key": "ctrl+alt+n",
         "mac": "cmd+alt+n",
-        "when": "focusedView == green-code.chat"
+        "when": "focusedView == yes-code.chat"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "green-code.newChatInEditor",
-          "when": "view == green-code.chat",
+          "command": "yes-code.newChatInEditor",
+          "when": "view == yes-code.chat",
           "group": "navigation@1"
         },
         {
-          "command": "green-code.moveView",
-          "when": "view == green-code.chat",
+          "command": "yes-code.moveView",
+          "when": "view == yes-code.chat",
           "group": "1_layout@1"
         }
       ],
       "editor/context": [
         {
-          "command": "green-code.addSelectionToChat",
+          "command": "yes-code.addSelectionToChat",
           "when": "editorHasSelection",
-          "group": "green-code@1"
+          "group": "yes-code@1"
         },
         {
-          "command": "green-code.explainSelection",
+          "command": "yes-code.explainSelection",
           "when": "editorHasSelection",
-          "group": "green-code@2"
+          "group": "yes-code@2"
         },
         {
-          "command": "green-code.fixSelection",
+          "command": "yes-code.fixSelection",
           "when": "editorHasSelection",
-          "group": "green-code@3"
+          "group": "yes-code@3"
         }
       ],
       "explorer/context": [
         {
-          "command": "green-code.addFileToChat",
-          "group": "green-code@1"
+          "command": "yes-code.addFileToChat",
+          "group": "yes-code@1"
         }
       ],
       "commandPalette": [
         {
-          "command": "green-code.acceptEdit",
+          "command": "yes-code.acceptEdit",
           "when": "false"
         },
         {
-          "command": "green-code.rejectEdit",
+          "command": "yes-code.rejectEdit",
           "when": "false"
         },
         {
-          "command": "green-code.focusInput",
+          "command": "yes-code.focusInput",
           "when": "false"
         }
       ]
@@ -258,7 +258,7 @@
     "configuration": {
       "title": "Yes Code",
       "properties": {
-        "green-code.model": {
+        "yes-code.model": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -275,7 +275,7 @@
           ],
           "description": "The Claude model to use for the agent."
         },
-        "green-code.permissionMode": {
+        "yes-code.permissionMode": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -292,7 +292,7 @@
           ],
           "description": "Default permission mode for tool usage."
         },
-        "green-code.authMethod": {
+        "yes-code.authMethod": {
           "type": "string",
           "default": "subscription",
           "enum": [
@@ -306,34 +306,34 @@
           "description": "How to authenticate with Anthropic. 'subscription' signs in with your claude.ai account; 'apiKey' uses a Console API key.",
           "scope": "application"
         },
-        "green-code.apiKey": {
+        "yes-code.apiKey": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Your Anthropic API key (used only when `#green-code.authMethod#` is `apiKey`). Prefer the **Sign In** command, which stores the key in secret storage. Leave empty to use the `ANTHROPIC_API_KEY` environment variable.",
+          "markdownDescription": "Your Anthropic API key (used only when `#yes-code.authMethod#` is `apiKey`). Prefer the **Sign In** command, which stores the key in secret storage. Leave empty to use the `ANTHROPIC_API_KEY` environment variable.",
           "scope": "application"
         },
-        "green-code.claudeExecutablePath": {
+        "yes-code.claudeExecutablePath": {
           "type": "string",
           "default": "",
           "markdownDescription": "Full path to the `claude` executable. Leave empty to auto-detect (checks `PATH`, npm global installs, and the native installer). Must point at the real binary, not an npm launcher script — though a launcher script will be followed to its target. Supports `~` and `${env:VAR}`.",
           "scope": "application"
         },
-        "green-code.maxTurns": {
+        "yes-code.maxTurns": {
           "type": "number",
           "default": 100,
           "description": "Maximum number of agent turns per request."
         },
-        "green-code.thinkingBudget": {
+        "yes-code.thinkingBudget": {
           "type": "number",
           "default": 0,
           "description": "Max thinking tokens (0 = model default). Higher enables extended thinking."
         },
-        "green-code.extendedThinking": {
+        "yes-code.extendedThinking": {
           "type": "boolean",
           "default": true,
           "description": "Enable extended thinking. Toggled live from the composer's Actions menu."
         },
-        "green-code.effort": {
+        "yes-code.effort": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -354,12 +354,12 @@
           ],
           "markdownDescription": "Reasoning effort level (SDK `effort`). Changing it applies to the next chat/turn."
         },
-        "green-code.autoModelFallback": {
+        "yes-code.autoModelFallback": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Switch to a fallback model when the primary is flagged or fails (SDK `fallbackModel`)."
         },
-        "green-code.additionalDirectories": {
+        "yes-code.additionalDirectories": {
           "type": "array",
           "items": {
             "type": "string"
@@ -367,7 +367,7 @@
           "default": [],
           "description": "Additional directories the agent is allowed to access, beyond the workspace."
         },
-        "green-code.loadProjectSettings": {
+        "yes-code.loadProjectSettings": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Load filesystem settings — user (`~/.claude`), project (`.claude`), and local (`.claude/settings.local.json`). This is what enables `CLAUDE.md` files and **MCP servers**. Turning it off runs the agent in isolation with no MCP."
@@ -382,7 +382,7 @@
     "package": "node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "vsix": "vsce package -o green-code.vsix",
+    "vsix": "vsce package -o yes-code.vsix",
     "publish:check": "node scripts/preflight.js",
     "publish:marketplace": "npm run publish:check && vsce publish --azure-credential",
     "publish:marketplace:pat": "npm run publish:check && vsce publish"

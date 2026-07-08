@@ -80,7 +80,7 @@ chatbot inside the editor.
 
   The extension auto-detects the executable via `PATH`, npm global installs, and the
   native installer, following npm launcher scripts to the real binary. If yours lives
-  somewhere unusual, set `green-code.claudeExecutablePath`.
+  somewhere unusual, set `yes-code.claudeExecutablePath`.
 
 Yes Code must run in a **trusted workspace**. It edits files, executes shell commands,
 and starts MCP servers declared in the workspace's `.mcp.json` — all of which are defined
@@ -90,12 +90,12 @@ by the repository you have open.
 
 Yes Code does not operate a backend. It runs the Claude Agent SDK locally and the
 SDK talks to Anthropic directly; your credentials never leave your machine. Two methods
-are available (choose via **Yes Code: Sign In**, or the `green-code.authMethod`
+are available (choose via **Yes Code: Sign In**, or the `yes-code.authMethod`
 setting):
 
 - **API key** — an Anthropic API key from the [Claude Console](https://platform.claude.com/),
   stored in VS Code SecretStorage. Also readable from the `ANTHROPIC_API_KEY` environment
-  variable or the `green-code.apiKey` setting. This is the authentication method Anthropic
+  variable or the `yes-code.apiKey` setting. This is the authentication method Anthropic
   documents for software built on the Agent SDK.
 - **Claude subscription** — signs in with your own Claude account through the bundled
   Claude runtime's OAuth flow (`claude auth login`). In this mode the extension does not
@@ -117,24 +117,24 @@ setting):
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `green-code.model` | `default` | Model to use. |
-| `green-code.permissionMode` | `default` | Default permission mode. |
-| `green-code.authMethod` | `subscription` | `subscription` or `apiKey`. |
-| `green-code.apiKey` | `""` | Anthropic API key (prefer the Sign In command). |
-| `green-code.claudeExecutablePath` | `""` | Path to the `claude` executable (empty = auto-detect). |
-| `green-code.maxTurns` | `100` | Max agent turns per request. |
-| `green-code.extendedThinking` | `true` | Enable extended thinking. |
-| `green-code.thinkingBudget` | `0` | Max thinking tokens (0 = model default). |
-| `green-code.effort` | `default` | Reasoning effort level. |
-| `green-code.autoModelFallback` | `false` | Fall back to another model when the primary fails. |
-| `green-code.additionalDirectories` | `[]` | Extra directories the agent may access. |
-| `green-code.loadProjectSettings` | `true` | Load user/project/local settings — enables `CLAUDE.md` and MCP servers. |
+| `yes-code.model` | `default` | Model to use. |
+| `yes-code.permissionMode` | `default` | Default permission mode. |
+| `yes-code.authMethod` | `subscription` | `subscription` or `apiKey`. |
+| `yes-code.apiKey` | `""` | Anthropic API key (prefer the Sign In command). |
+| `yes-code.claudeExecutablePath` | `""` | Path to the `claude` executable (empty = auto-detect). |
+| `yes-code.maxTurns` | `100` | Max agent turns per request. |
+| `yes-code.extendedThinking` | `true` | Enable extended thinking. |
+| `yes-code.thinkingBudget` | `0` | Max thinking tokens (0 = model default). |
+| `yes-code.effort` | `default` | Reasoning effort level. |
+| `yes-code.autoModelFallback` | `false` | Fall back to another model when the primary fails. |
+| `yes-code.additionalDirectories` | `[]` | Extra directories the agent may access. |
+| `yes-code.loadProjectSettings` | `true` | Load user/project/local settings — enables `CLAUDE.md` and MCP servers. |
 
 ### MCP
 
 Yes Code loads MCP servers from your user configuration (`claude mcp add`) and from the
 workspace `.mcp.json`. Run `/mcp` in the chat to see live connection status for each one.
-This requires `green-code.loadProjectSettings` to be on — it is what enables the settings
+This requires `yes-code.loadProjectSettings` to be on — it is what enables the settings
 sources MCP is configured through.
 
 ## Building from source

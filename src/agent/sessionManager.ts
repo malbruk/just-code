@@ -354,7 +354,7 @@ export class SessionManager implements vscode.Disposable {
             this.postSystem(`Unknown model “${arg}”. Try: ${MODELS.map((m) => `\`${m.label}\``).join(', ')}.`);
           }
         } else {
-          await vscode.commands.executeCommand('green-code.selectModel');
+          await vscode.commands.executeCommand('yes-code.selectModel');
         }
         return 'handled';
 
@@ -370,12 +370,12 @@ export class SessionManager implements vscode.Disposable {
             this.postSystem('Unknown mode. Try: `default`, `acceptEdits`, `plan`, `bypassPermissions`.');
           }
         } else {
-          await vscode.commands.executeCommand('green-code.setPermissionMode');
+          await vscode.commands.executeCommand('yes-code.setPermissionMode');
         }
         return 'handled';
 
       case '/config':
-        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:community.green-code');
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:MaBrukDev.yescode');
         return 'handled';
 
       case '/cost':
@@ -430,7 +430,7 @@ export class SessionManager implements vscode.Disposable {
 
       case '/bug':
         await vscode.env.openExternal(
-          vscode.Uri.parse('https://github.com/community/green-code/issues/new'),
+          vscode.Uri.parse('https://github.com/malbruk/yes-code/issues/new'),
         );
         return 'handled';
 
@@ -565,7 +565,7 @@ export class SessionManager implements vscode.Disposable {
   private async mcpStatusText(): Promise<string> {
     if (!readConfig().loadProjectSettings) {
       return (
-        '### MCP servers\n\nMCP is disabled: `green-code.loadProjectSettings` is off, so no ' +
+        '### MCP servers\n\nMCP is disabled: `yes-code.loadProjectSettings` is off, so no ' +
         'settings sources are loaded. Turn it on to use MCP servers from your user or project configuration.'
       );
     }
@@ -634,7 +634,7 @@ export class SessionManager implements vscode.Disposable {
       this.postSystem('Usage: `/add-dir <path>` — provide a directory to grant the agent access to.');
       return;
     }
-    const cfg = vscode.workspace.getConfiguration('green-code');
+    const cfg = vscode.workspace.getConfiguration('yes-code');
     const dirs = cfg.get<string[]>('additionalDirectories', []);
     if (dirs.includes(arg)) {
       this.postSystem(`\`${arg}\` is already in the allowed directories.`);
@@ -729,7 +729,7 @@ export class SessionManager implements vscode.Disposable {
 
   async setModel(model: ModelId): Promise<void> {
     this.model = model;
-    await vscode.workspace.getConfiguration('green-code').update('model', model, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('yes-code').update('model', model, vscode.ConfigurationTarget.Global);
     await this.session?.setModel(model);
     this.postSettings();
   }
@@ -738,7 +738,7 @@ export class SessionManager implements vscode.Disposable {
     this.permissionMode = mode;
     this.permissions.setMode(mode);
     await vscode.workspace
-      .getConfiguration('green-code')
+      .getConfiguration('yes-code')
       .update('permissionMode', mode, vscode.ConfigurationTarget.Global);
     await this.session?.setPermissionMode(mode);
     this.postSettings();
@@ -751,7 +751,7 @@ export class SessionManager implements vscode.Disposable {
    */
   async setEffort(effort: EffortLevel): Promise<void> {
     this.effort = effort;
-    await vscode.workspace.getConfiguration('green-code').update('effort', effort, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('yes-code').update('effort', effort, vscode.ConfigurationTarget.Global);
     this.postSettings();
   }
 
@@ -759,7 +759,7 @@ export class SessionManager implements vscode.Disposable {
   async setThinking(enabled: boolean): Promise<void> {
     this.extendedThinking = enabled;
     await vscode.workspace
-      .getConfiguration('green-code')
+      .getConfiguration('yes-code')
       .update('extendedThinking', enabled, vscode.ConfigurationTarget.Global);
     await this.session?.setThinking(enabled);
     this.postSettings();
@@ -769,7 +769,7 @@ export class SessionManager implements vscode.Disposable {
   async setModelFallback(enabled: boolean): Promise<void> {
     this.autoModelFallback = enabled;
     await vscode.workspace
-      .getConfiguration('green-code')
+      .getConfiguration('yes-code')
       .update('autoModelFallback', enabled, vscode.ConfigurationTarget.Global);
     this.postSettings();
   }
@@ -1071,7 +1071,7 @@ export class SessionManager implements vscode.Disposable {
 
   private async setAuthMethod(method: AuthMethod): Promise<void> {
     await vscode.workspace
-      .getConfiguration('green-code')
+      .getConfiguration('yes-code')
       .update('authMethod', method, vscode.ConfigurationTarget.Global);
   }
 

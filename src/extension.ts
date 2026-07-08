@@ -35,47 +35,47 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
   context.subscriptions.push(
-    cmd('green-code.openChat', () => provider.reveal()),
-    cmd('green-code.newChat', () => manager.newChat()),
-    cmd('green-code.newChatInEditor', () => provider.openInEditor()),
-    cmd('green-code.stop', () => manager.stop()),
-    cmd('green-code.history', async () => {
+    cmd('yes-code.openChat', () => provider.reveal()),
+    cmd('yes-code.newChat', () => manager.newChat()),
+    cmd('yes-code.newChatInEditor', () => provider.openInEditor()),
+    cmd('yes-code.stop', () => manager.stop()),
+    cmd('yes-code.history', async () => {
       await provider.reveal();
       await manager.sendHistory();
     }),
-    cmd('green-code.addSelectionToChat', () => manager.addSelectionToChat()),
-    cmd('green-code.addFileToChat', (uri?: vscode.Uri) => {
+    cmd('yes-code.addSelectionToChat', () => manager.addSelectionToChat()),
+    cmd('yes-code.addFileToChat', (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (target) return manager.addFileToChat(target);
       return undefined;
     }),
-    cmd('green-code.explainSelection', () => manager.explainSelection()),
-    cmd('green-code.fixSelection', () => manager.fixSelection()),
-    cmd('green-code.acceptAllEdits', () => manager.acceptAllEdits()),
-    cmd('green-code.rejectAllEdits', () => manager.rejectAllEdits()),
-    cmd('green-code.acceptEdit', (toolUseId?: string) => {
+    cmd('yes-code.explainSelection', () => manager.explainSelection()),
+    cmd('yes-code.fixSelection', () => manager.fixSelection()),
+    cmd('yes-code.acceptAllEdits', () => manager.acceptAllEdits()),
+    cmd('yes-code.rejectAllEdits', () => manager.rejectAllEdits()),
+    cmd('yes-code.acceptEdit', (toolUseId?: string) => {
       if (toolUseId) manager.acceptEdit(toolUseId);
     }),
-    cmd('green-code.rejectEdit', (toolUseId?: string) => {
+    cmd('yes-code.rejectEdit', (toolUseId?: string) => {
       if (toolUseId) return manager.rejectEdit(toolUseId);
       return undefined;
     }),
-    cmd('green-code.selectModel', () => selectModel(manager)),
-    cmd('green-code.setPermissionMode', () => selectPermissionMode(manager)),
-    cmd('green-code.signIn', () => manager.signIn()),
-    cmd('green-code.signOut', () => manager.signOut()),
-    cmd('green-code.rewind', () => undefined),
-    cmd('green-code.focusInput', async () => {
+    cmd('yes-code.selectModel', () => selectModel(manager)),
+    cmd('yes-code.setPermissionMode', () => selectPermissionMode(manager)),
+    cmd('yes-code.signIn', () => manager.signIn()),
+    cmd('yes-code.signOut', () => manager.signOut()),
+    cmd('yes-code.rewind', () => undefined),
+    cmd('yes-code.focusInput', async () => {
       await provider.reveal();
       manager.focusInput();
     }),
-    cmd('green-code.moveView', () => moveChatToDrawer()),
+    cmd('yes-code.moveView', () => moveChatToDrawer()),
   );
 
   // Re-evaluate auth if the stored secret changes elsewhere.
   context.subscriptions.push(
     context.secrets.onDidChange((e) => {
-      if (e.key === 'green-code.apiKey') void manager.refreshAuth();
+      if (e.key === 'yes-code.apiKey') void manager.refreshAuth();
     }),
   );
 
@@ -83,17 +83,17 @@ export function activate(context: vscode.ExtensionContext): void {
   // a different executable — otherwise the stale path survives until reload.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('green-code.claudeExecutablePath')) {
+      if (e.affectsConfiguration('yes-code.claudeExecutablePath')) {
         clearBinaryCache();
         void manager.refreshAuth();
       }
     }),
   );
 
-  void vscode.commands.executeCommand('setContext', 'green-code.hasPendingEdits', false);
+  void vscode.commands.executeCommand('setContext', 'yes-code.hasPendingEdits', false);
 
   // One-time tip: how to keep files + chat visible side by side.
-  const TIP_KEY = 'green-code.placementTipShown';
+  const TIP_KEY = 'yes-code.placementTipShown';
   if (!context.globalState.get<boolean>(TIP_KEY)) {
     void context.globalState.update(TIP_KEY, true);
     void vscode.window
@@ -115,7 +115,7 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 async function moveChatToDrawer(): Promise<void> {
   try {
-    await vscode.commands.executeCommand('green-code.chat.focus');
+    await vscode.commands.executeCommand('yes-code.chat.focus');
     await vscode.commands.executeCommand('workbench.action.moveFocusedView');
   } catch {
     await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');

@@ -32,7 +32,7 @@ There is no unit-test runner; verify with the scripts below.
 - `node esbuild.js` — must build both bundles with no errors.
 - `node scratch/activate-test.js` — stubs the `vscode` module, requires the built
   `dist/extension.js`, calls `activate()`, and asserts every command declared in
-  `package.json` is registered and the `green-code.chat` view provider registers.
+  `package.json` is registered and the `yes-code.chat` view provider registers.
   Run this after touching activation, commands, or the manifest.
 - Native binary / auth path: `node -e` resolving `@anthropic-ai/claude-agent-sdk-<plat>/claude(.exe)`
   and running `claude auth status --json` (see git history / scratch for the exact snippet).
@@ -72,7 +72,7 @@ Extension host (Node, CJS)  ⇄  src/shared/protocol.ts  ⇄  Webview UI (browse
   keeping it ~4 MB and platform-independent. `src/agent/cli.ts` discovers an existing
   Claude Code install instead, and `config.ts` pins `pathToClaudeCodeExecutable` to it.
   Users must have Claude Code installed (`npm i -g @anthropic-ai/claude-code`).
-  - `resolveClaudeBinary()` search order: `green-code.claudeExecutablePath` setting →
+  - `resolveClaudeBinary()` search order: `yes-code.claudeExecutablePath` setting →
     Node resolution → `PATH` → known npm-global / native-installer dirs. An explicit
     setting is authoritative: if it is wrong, return undefined rather than silently
     running some other installation.
@@ -110,12 +110,12 @@ Extension host (Node, CJS)  ⇄  src/shared/protocol.ts  ⇄  Webview UI (browse
 
 ### Auth (two methods)
 
-Controlled by `green-code.authMethod` (`subscription` default, or `apiKey`):
+Controlled by `yes-code.authMethod` (`subscription` default, or `apiKey`):
 - **subscription** — uses the native binary's stored claude.ai OAuth login. The
   extension checks/drives it via `claude auth status|login|logout` (`src/agent/cli.ts`),
   and in this mode **deliberately deletes `ANTHROPIC_API_KEY`** from the SDK env so
   the subscription is used, not Console billing.
-- **apiKey** — key from SecretStorage → `green-code.apiKey` setting → `ANTHROPIC_API_KEY`.
+- **apiKey** — key from SecretStorage → `yes-code.apiKey` setting → `ANTHROPIC_API_KEY`.
 
 `SessionManager.signIn()` shows a QuickPick between the two.
 
@@ -136,7 +136,7 @@ Host (`src/`):
 - `agent/asyncQueue.ts` — the streaming-input prompt queue.
 - `tools/permissions.ts` — `canUseTool` bridge → `permissionRequest` / awaits decision.
 - `tools/diff.ts` — pre-edit snapshots, applied-diff compute, accept/reject, native
-  diff editor, `green-code.hasPendingEdits` context key.
+  diff editor, `yes-code.hasPendingEdits` context key.
 - `context/editorContext.ts` — tracks active file/selection/open files → `editorContext`.
 - `context/completions.ts` — `@`-file search + `/`-slash command list.
 - `history/history.ts` — `listSessions` / `getSessionMessages`.

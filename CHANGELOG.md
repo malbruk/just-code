@@ -21,7 +21,7 @@ First public release.
   prompt, so opening an untrusted repository would start processes it defines.
 - Errors on the message path are surfaced in the chat instead of being swallowed into the
   output channel, and a missing runtime now reports how to install it.
-- New setting: `green-code.claudeExecutablePath`.
+- New setting: `yes-code.claudeExecutablePath`.
 
 ## 0.1.0
 

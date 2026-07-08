@@ -196,7 +196,7 @@ let cachedBin: string | null | undefined;
  * no Claude Code installation can be found.
  *
  * Search order (first hit wins):
- *   1. the `green-code.claudeExecutablePath` setting, if set
+ *   1. the `yes-code.claudeExecutablePath` setting, if set
  *   2. Node resolution — a bundled SDK binary, or the `@anthropic-ai/claude-code` package
  *   3. `PATH`
  *   4. well-known npm-global / native-installer locations
@@ -209,7 +209,7 @@ let cachedBin: string | null | undefined;
 export function resolveClaudeBinary(): string | undefined {
   if (cachedBin !== undefined) return cachedBin ?? undefined;
 
-  const configured = vscode.workspace.getConfiguration('green-code').get<string>('claudeExecutablePath', '');
+  const configured = vscode.workspace.getConfiguration('yes-code').get<string>('claudeExecutablePath', '');
   if (configured && configured.trim()) {
     const found = deshim(expandUserPath(configured));
     // An explicit setting is authoritative: if it is wrong, fail loudly rather
@@ -238,7 +238,7 @@ export function installHint(): string {
     'so it must be installed first:\n\n' +
     '```\nnpm install -g @anthropic-ai/claude-code\n```\n\n' +
     `See the [installation guide](${INSTALL_DOCS_URL}). ` +
-    'If it is already installed somewhere unusual, set `green-code.claudeExecutablePath` to its full path.'
+    'If it is already installed somewhere unusual, set `yes-code.claudeExecutablePath` to its full path.'
   );
 }
 
@@ -349,7 +349,7 @@ export function startLogin(bin: string, mode: 'subscription' | 'console', email?
   // context. We suppress the auto-open by pointing `$BROWSER` at a command that
   // won't resolve (the CLI treats "not found" as a no-op with no window) so the
   // only browser tab is the manual URL we open ourselves via `openExternal`.
-  const env = { ...process.env, BROWSER: 'green-code-no-browser' };
+  const env = { ...process.env, BROWSER: 'yes-code-no-browser' };
   const child = spawn(bin, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env });
 
   let buffer = '';
