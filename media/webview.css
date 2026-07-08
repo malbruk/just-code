@@ -313,7 +313,8 @@ code {
 
 .md-list {
   margin: 0.35em 0;
-  padding-left: 1.4em;
+  /* logical, so bullets/numbers sit on the right of an RTL list */
+  padding-inline-start: 1.4em;
 }
 
 .md-list li {
@@ -323,7 +324,7 @@ code {
 .md-quote {
   margin: 0.5em 0;
   padding: 0.2em 0.9em;
-  border-left: 3px solid var(--cc-border);
+  border-inline-start: 3px solid var(--cc-border);
   color: var(--cc-muted);
 }
 
@@ -349,7 +350,8 @@ code {
 .md-table td {
   border: 1px solid var(--cc-border);
   padding: 5px 9px;
-  text-align: left;
+  /* `start`, not `left`: each cell carries dir="auto", so a Hebrew cell aligns right */
+  text-align: start;
   vertical-align: top;
 }
 
@@ -430,6 +432,69 @@ code {
   padding: 0;
   font-family: var(--vscode-editor-font-family, monospace);
   white-space: pre;
+}
+
+/* -------------------------------------------------------------------- bidi */
+
+/*
+ * Mixed Hebrew/English output. Every markdown *block* is emitted with dir="auto"
+ * (see markdown.ts), so each paragraph, list item, heading, quote and table cell
+ * picks its own base direction from its first strong character and the Unicode
+ * bidi algorithm reorders the runs inside it. render.ts additionally latches the
+ * direction of the streaming container once, so a response never flips sides
+ * mid-stream.
+ *
+ * Everything below re-pins the parts that must NOT follow the prose: code is
+ * left-to-right by definition, and the tool/diff/terminal chrome is structural.
+ * Without this, one Hebrew paragraph would drag a code block or a diff gutter
+ * over to the other side of the panel.
+ */
+
+/* text follows its own resolved direction rather than the container's */
+.markdown p,
+.markdown li,
+.md-h,
+.md-quote {
+  text-align: start;
+}
+
+/* an identifier like `foo.bar()` must not be re-ordered by surrounding Hebrew */
+.md-code,
+code,
+.md-link {
+  unicode-bidi: isolate;
+}
+
+.md-code,
+code {
+  direction: ltr;
+}
+
+/* fenced code: always LTR, regardless of the paragraph that introduced it */
+.md-pre,
+.md-pre pre,
+.md-pre code,
+.md-pre-head {
+  direction: ltr;
+  text-align: left;
+}
+
+/* tool cards, diffs and terminal panels are chrome + code: keep them LTR */
+.tool-card,
+.tool-input,
+.tool-result-pre,
+.tool-file,
+.diff,
+.io {
+  direction: ltr;
+  text-align: left;
+}
+
+/* file/command text inside them still gets isolated so RTL content can't leak out */
+.io-text,
+.diff-code,
+.tool-title {
+  unicode-bidi: isolate;
 }
 
 /* ------------------------------------------------------------------ errors */
@@ -903,7 +968,9 @@ code {
   width: 7px;
   height: 1.05em;
   vertical-align: text-bottom;
-  margin-left: 2px;
+  /* logical + isolated: the typing caret trails the text on whichever side it ends */
+  margin-inline-start: 2px;
+  unicode-bidi: isolate;
   background: var(--vscode-foreground);
   animation: blink 1s steps(2, start) infinite;
   border-radius: 1px;

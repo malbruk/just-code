@@ -12,7 +12,7 @@ import type {
   ToolUseView,
 } from '../../src/shared/protocol.js';
 import type { AppState } from './state.js';
-import { renderMarkdown, escapeHtml } from './markdown.js';
+import { renderMarkdown, escapeHtml, firstStrongDir } from './markdown.js';
 import {
   check,
   cross,
@@ -33,6 +33,24 @@ import {
  * from, so streaming updates can skip re-parsing markdown when nothing changed.
  */
 const blockText = new WeakMap<HTMLElement, string>();
+
+/**
+ * Pin the base direction of a text container, once, on the first strong character.
+ *
+ * The `dir="auto"` on each rendered paragraph already handles mixed Hebrew/English
+ * content, but a paragraph that has not yet streamed a strong character inherits
+ * its parent's direction. Latching that parent the moment the direction becomes
+ * knowable — and never recomputing it afterwards — means a response that opens with
+ * punctuation, a number or a code span does not visibly flip sides once the first
+ * Hebrew letter arrives. Direction is therefore decided at most once per block.
+ */
+function latchDir(el: HTMLElement, text: string): void {
+  if (el.dataset.dirLatched) return;
+  const dir = firstStrongDir(text);
+  if (!dir) return;
+  el.dir = dir;
+  el.dataset.dirLatched = '1';
+}
 
 const EXAMPLE_PROMPTS = [
   'Explain what this project does',
@@ -239,6 +257,7 @@ export class Transcript {
       case 'text':
         if (main && blockText.get(el) !== block.text) {
           main.innerHTML = renderMarkdown(block.text);
+          latchDir(main, block.text);
           blockText.set(el, block.text);
         }
         break;
@@ -249,6 +268,7 @@ export class Transcript {
         const bodyEl = el.querySelector<HTMLElement>('.thinking-body');
         if (bodyEl && blockText.get(el) !== block.text) {
           bodyEl.innerHTML = renderMarkdown(block.text);
+          latchDir(bodyEl, block.text);
           blockText.set(el, block.text);
         }
         break;
@@ -298,6 +318,7 @@ export class Transcript {
       .join('\n')
       .trim();
     textEl.innerHTML = renderMarkdown(text);
+    latchDir(textEl, text);
     bubble.appendChild(textEl);
 
     wrap.appendChild(bubble);
@@ -320,6 +341,7 @@ export class Transcript {
       case 'text':
         main.className = 'step-main block-text markdown';
         main.innerHTML = renderMarkdown(block.text);
+        latchDir(main, block.text);
         break;
       case 'thinking':
         main.appendChild(this.renderThinking(block));
@@ -331,6 +353,7 @@ export class Transcript {
       case 'error':
         dot.classList.add('dot-error');
         main.className = 'step-main block-error';
+        main.dir = 'auto';
         main.textContent = block.text;
         break;
     }
@@ -363,6 +386,7 @@ export class Transcript {
     const body = document.createElement('div');
     body.className = 'thinking-body markdown';
     body.innerHTML = renderMarkdown(block.text);
+    latchDir(body, block.text);
     details.append(summary, body);
     return details;
   }
