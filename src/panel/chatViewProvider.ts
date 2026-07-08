@@ -62,7 +62,14 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   private register(webview: vscode.Webview): void {
     this.webviews.add(webview);
     webview.onDidReceiveMessage((raw: WebviewToHost) => {
-      void this.manager.handleMessage(raw).catch((err) => this.log.error('handleMessage failed', err));
+      void this.manager.handleMessage(raw).catch((err) => {
+        this.log.error('handleMessage failed', err);
+        // Surface it. Swallowing this to the output channel leaves the user
+        // staring at a chat that silently does nothing — the composer never
+        // even leaves the busy state.
+        this.broadcast({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+        this.broadcast({ type: 'status', busy: false });
+      });
     });
   }
 

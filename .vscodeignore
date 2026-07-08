@@ -9,15 +9,28 @@ esbuild.js
 tsconfig.json
 docs/**
 scratch/**
+scripts/**
 CLAUDE.md
+PUBLISHING.md
 **/*.ts
 **/*.map
 
-# Exclude all of node_modules EXCEPT the Agent SDK and its native binary, which
-# the extension imports at runtime (kept external from the bundle on purpose).
+# Exclude all of node_modules except the ONE package the host imports at runtime:
+# the Agent SDK, kept external from the bundle on purpose (see esbuild.js).
+#
+# Deliberately NOT shipped:
+#  - `@anthropic-ai/claude-agent-sdk-<platform>` — the ~250 MB native `claude`
+#    runtime. Platform-specific; would force a separate VSIX per OS. The extension
+#    discovers an existing Claude Code installation instead (src/agent/cli.ts).
+#  - `@anthropic-ai/sdk`, `zod`, `@modelcontextprotocol/sdk` — declared peers of the
+#    Agent SDK, but `sdk.mjs` never imports them. They exist only so `sdk.d.ts`
+#    typechecks. Verified: a full streaming query with tool use runs with only
+#    `@anthropic-ai/claude-agent-sdk` present.
+#
+# Note: .vscodeignore is not last-match-wins like .gitignore — a later exclude
+# will NOT override an earlier negation. Narrow the negations themselves.
 node_modules/**
-!node_modules/@anthropic-ai/**
-!node_modules/zod/**
+!node_modules/@anthropic-ai/claude-agent-sdk/**
 
-# But never ship other-platform native binaries or SDK source maps.
+# But never ship SDK source maps.
 node_modules/@anthropic-ai/**/*.map

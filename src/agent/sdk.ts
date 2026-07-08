@@ -18,6 +18,7 @@ export type {
   PermissionUpdate,
   SDKSessionInfo,
   SessionMessage,
+  McpServerStatus,
 } from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };
 
 import type * as SDK from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };

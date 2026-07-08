@@ -64,18 +64,49 @@ Extension host (Node, CJS)  ⇄  src/shared/protocol.ts  ⇄  Webview UI (browse
 
 - The SDK is **ESM-only** and is kept **external** from the host bundle on purpose
   (`external: ['@anthropic-ai/claude-agent-sdk']` in `esbuild.js`). It is loaded via
-  a dynamic `import()` in `src/agent/sdk.ts`. **Do not bundle it**: it resolves a
-  per-platform native `claude` binary relative to its own file via `import.meta.url`;
-  bundling breaks that resolution once packaged. Consequence: `node_modules/@anthropic-ai/**`
-  ships inside the `.vsix` (see `.vscodeignore`), which is why the package is ~82 MB
-  (the native binary is ~240 MB uncompressed, one platform only).
+  a dynamic `import()` in `src/agent/sdk.ts`. **Do not bundle it.** Consequence:
+  `node_modules/@anthropic-ai/{claude-agent-sdk,sdk}` and `zod` ship inside the `.vsix`
+  (see `.vscodeignore`).
+- The **native `claude` runtime is NOT bundled.** The SDK's per-platform packages
+  (`@anthropic-ai/claude-agent-sdk-<plat>`, ~250 MB each) are excluded from the `.vsix`,
+  keeping it ~4 MB and platform-independent. `src/agent/cli.ts` discovers an existing
+  Claude Code install instead, and `config.ts` pins `pathToClaudeCodeExecutable` to it.
+  Users must have Claude Code installed (`npm i -g @anthropic-ai/claude-code`).
+  - `resolveClaudeBinary()` search order: `green-code.claudeExecutablePath` setting →
+    Node resolution → `PATH` → known npm-global / native-installer dirs. An explicit
+    setting is authoritative: if it is wrong, return undefined rather than silently
+    running some other installation.
+  - Every candidate goes through `deshim()`. **npm's global `claude` / `claude.cmd` /
+    `claude.ps1` are text launcher scripts, not executables** — the SDK spawns the path
+    directly with no shell, so handing it a shim fails. `deshim()` checks magic bytes
+    (`MZ` / ELF / Mach-O) and, for a script, extracts the target path it re-execs.
+  - The result is cached; `clearBinaryCache()` runs from `extension.ts` on setting change.
+  - `node scratch/binary-test.js` verifies discovery in two scenarios: in-repo (a bundled
+    binary is reachable) and out-of-tree (the shipped VSIX, which must find an install).
+    It asserts the result has native-executable magic and spawns without a shell.
+    **Run it after touching `cli.ts`.**
+- `.vscodeignore` is **not** last-match-wins like `.gitignore`: an `exclude` line placed
+  after a `!negation` will not override it. Narrow the negation itself.
 - **Streaming-input mode**: one long-lived `query()` per conversation, fed by a
   push-based async iterable (`src/agent/asyncQueue.ts`). This is what enables
   `q.interrupt()`, `q.setModel()`, `q.setPermissionMode()`. The consume loop maps
   `SDKMessage`s → protocol messages (see `docs/SDK-NOTES.md` for exact message shapes).
-- Options use the `claude_code` presets for `systemPrompt` and `tools`;
-  `settingSources: ['project']` (gated on the `loadProjectSettings` setting) loads
-  workspace `CLAUDE.md`.
+- Options use the `claude_code` presets for `systemPrompt` (plus an `append` of
+  `src/agent/system-prompt.md`) and `tools`.
+- `settingSources: ['user', 'project', 'local']`, gated on the `loadProjectSettings`
+  setting. **All three are required.** `user` (`~/.claude/settings.json`) is where
+  globally-configured MCP servers live; passing only `['project']` silently drops them.
+  This is also what loads `CLAUDE.md` and the workspace `.mcp.json`.
+  - The SDK connects `.mcp.json` servers **without an approval prompt**, unlike the
+    interactive CLI. That is arbitrary command execution from the repository, hence
+    `capabilities.untrustedWorkspaces.supported: false` in `package.json`.
+  - `scratch/mcp-test.mjs` (+ `scratch/echo-server.mjs`) is a real end-to-end check:
+    it spins up a stdio MCP server in a temp workspace, runs a live `query()`, and
+    asserts the tool is exposed and executes.
+- `@modelcontextprotocol/sdk` is a **types-only** dependency here (`sdk.d.ts` imports
+  from it; `sdk.mjs` never does — MCP runs inside the native binary). It is declared in
+  `devDependencies` so `check-types` does not rely on npm's peer auto-install, and it is
+  deliberately absent from the `.vsix`.
 
 ### Auth (two methods)
 

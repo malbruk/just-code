@@ -1,10 +1,18 @@
 import * as vscode from 'vscode';
 import type { CanUseTool, Options, ThinkingConfig } from './sdk';
 import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '../shared/protocol';
-import { resolveClaudeBinary } from './cli';
+import { installHint, resolveClaudeBinary } from './cli';
 import { SYSTEM_PROMPT_APPEND } from './systemPrompt';
 
 const SECRET_KEY = 'green-code.apiKey';
+
+/** Thrown by {@link buildOptions} when no Claude Code installation can be found. */
+export class ClaudeRuntimeNotFoundError extends Error {
+  constructor() {
+    super(installHint());
+    this.name = 'ClaudeRuntimeNotFoundError';
+  }
+}
 
 /** User-configurable settings read from the `green-code.*` configuration. */
 export interface HostConfig {
@@ -124,7 +132,16 @@ export function buildOptions(args: BuildOptionsArgs): Options {
       ? { type: 'preset', preset: 'claude_code', append: SYSTEM_PROMPT_APPEND }
       : { type: 'preset', preset: 'claude_code' },
     tools: { type: 'preset', preset: 'claude_code' },
-    settingSources: config.loadProjectSettings ? ['project'] : [],
+    // All three sources, not just 'project'. `user` (~/.claude/settings.json)
+    // is where globally-configured MCP servers live — with only `project` they
+    // are silently missing. `local` (.claude/settings.local.json) holds the
+    // per-machine project overrides.
+    //
+    // Note this also loads the workspace `.mcp.json`, and the SDK connects those
+    // servers without an approval prompt (unlike the interactive CLI). That is
+    // arbitrary command execution from the repository, which is why the
+    // extension declares `untrustedWorkspaces: false` in package.json.
+    settingSources: config.loadProjectSettings ? ['user', 'project', 'local'] : [],
     permissionMode,
     canUseTool,
     includePartialMessages: true,
@@ -146,8 +163,17 @@ export function buildOptions(args: BuildOptionsArgs): Options {
 
   // Pin the executable to the binary we auth-check against, so the SDK and our
   // `claude auth` calls always agree on which runtime/credentials are in use.
+  //
+  // This is required, not optional: we do not ship the native runtime, so if we
+  // leave `pathToClaudeCodeExecutable` unset the SDK falls back to resolving a
+  // per-platform package that is absent from the VSIX, and throws
+  //   "Native CLI binary for <plat> not found. Reinstall @anthropic-ai/claude-agent-sdk
+  //    without --omit=optional…"
+  // — advice that makes no sense to someone who installed a VS Code extension.
+  // Fail here instead, with something the user can act on.
   const bin = resolveClaudeBinary();
-  if (bin) options.pathToClaudeCodeExecutable = bin;
+  if (!bin) throw new ClaudeRuntimeNotFoundError();
+  options.pathToClaudeCodeExecutable = bin;
 
   // Extended thinking: off → disabled; on with an explicit budget → enabled at
   // that budget; on without a budget → leave the model default (adaptive).

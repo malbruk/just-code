@@ -67,6 +67,25 @@ chatbot inside the editor.
 | Accept all edits | `⌘Enter` | `Ctrl+Enter` |
 | New chat (panel focused) | `⌘⌥N` | `Ctrl+Alt+N` |
 
+## Requirements
+
+- VS Code 1.90+
+- **Claude Code installed on your machine.** Green Code drives Anthropic's own Claude
+  Code runtime locally; it does not bundle it (the binary is ~250 MB and platform
+  specific). Install it once:
+
+  ```bash
+  npm install -g @anthropic-ai/claude-code
+  ```
+
+  The extension auto-detects the executable via `PATH`, npm global installs, and the
+  native installer, following npm launcher scripts to the real binary. If yours lives
+  somewhere unusual, set `green-code.claudeExecutablePath`.
+
+Green Code must run in a **trusted workspace**. It edits files, executes shell commands,
+and starts MCP servers declared in the workspace's `.mcp.json` — all of which are defined
+by the repository you have open.
+
 ## Authentication
 
 Green Code does not operate a backend. It runs the Claude Agent SDK locally and the
@@ -102,13 +121,21 @@ setting):
 | `green-code.permissionMode` | `default` | Default permission mode. |
 | `green-code.authMethod` | `subscription` | `subscription` or `apiKey`. |
 | `green-code.apiKey` | `""` | Anthropic API key (prefer the Sign In command). |
+| `green-code.claudeExecutablePath` | `""` | Path to the `claude` executable (empty = auto-detect). |
 | `green-code.maxTurns` | `100` | Max agent turns per request. |
 | `green-code.extendedThinking` | `true` | Enable extended thinking. |
 | `green-code.thinkingBudget` | `0` | Max thinking tokens (0 = model default). |
 | `green-code.effort` | `default` | Reasoning effort level. |
 | `green-code.autoModelFallback` | `false` | Fall back to another model when the primary fails. |
 | `green-code.additionalDirectories` | `[]` | Extra directories the agent may access. |
-| `green-code.loadProjectSettings` | `true` | Load workspace `CLAUDE.md` and settings. |
+| `green-code.loadProjectSettings` | `true` | Load user/project/local settings — enables `CLAUDE.md` and MCP servers. |
+
+### MCP
+
+Green Code loads MCP servers from your user configuration (`claude mcp add`) and from the
+workspace `.mcp.json`. Run `/mcp` in the chat to see live connection status for each one.
+This requires `green-code.loadProjectSettings` to be on — it is what enables the settings
+sources MCP is configured through.
 
 ## Building from source
 
@@ -129,9 +156,9 @@ Development Host with the extension loaded, then open Green Code from the activi
 npm run vsix
 ```
 
-The Agent SDK is kept external from the bundle and ships inside the `.vsix` along with
-its platform-native runtime, so the package is large (~81 MB) and is **built for one
-platform at a time** — the runtime binary matches the machine that packaged it.
+The Agent SDK's JavaScript is kept external from the bundle and ships inside the `.vsix`;
+its ~250 MB native runtime is **not** bundled, so the package is ~4 MB and works on every
+platform. The runtime is discovered at load time from your Claude Code installation.
 
 ## Architecture
 

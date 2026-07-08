@@ -24,7 +24,15 @@ import {
   resolveApiKey,
   storeApiKey,
 } from './config';
-import { getAuthStatus, logout as cliLogout, resolveClaudeBinary, startLogin, type LoginSession } from './cli';
+import {
+  clearBinaryCache,
+  getAuthStatus,
+  logout as cliLogout,
+  installHint,
+  resolveClaudeBinary,
+  startLogin,
+  type LoginSession,
+} from './cli';
 import { PermissionBridge } from '../tools/permissions';
 import { PendingEditManager } from '../tools/diff';
 import { EditorContextTracker } from '../context/editorContext';
@@ -399,10 +407,7 @@ export class SessionManager implements vscode.Disposable {
 
       case '/mcp':
         this.echoCommand(raw);
-        this.postSystem(
-          'MCP servers are configured through your `.mcp.json` / project settings, which Green Code loads automatically. ' +
-            'Use **/config** to open settings, or edit the workspace `.mcp.json` file to add servers.',
-        );
+        this.postSystem(await this.mcpStatusText());
         return 'handled';
 
       case '/agents':
@@ -551,8 +556,53 @@ export class SessionManager implements vscode.Disposable {
       `- **Auth method:** ${cfg.authMethod}`,
       `- **Signed in:** ${this.signedIn ? 'yes' : 'no'}`,
       `- **Workspace:** ${getWorkspaceRoot() ? 'ok' : 'no folder open'}`,
+      `- **Settings sources:** ${cfg.loadProjectSettings ? 'user, project, local' : 'none (isolated)'}`,
     ];
     return '### Doctor\n\n' + checks.join('\n');
+  }
+
+  /** Live MCP server status, queried from the running agent. */
+  private async mcpStatusText(): Promise<string> {
+    if (!readConfig().loadProjectSettings) {
+      return (
+        '### MCP servers\n\nMCP is disabled: `green-code.loadProjectSettings` is off, so no ' +
+        'settings sources are loaded. Turn it on to use MCP servers from your user or project configuration.'
+      );
+    }
+
+    const servers = await this.session?.mcpServerStatus();
+    if (!servers) {
+      return (
+        '### MCP servers\n\nNo agent is running yet — MCP servers connect when the session starts. ' +
+        'Send a message first, then run `/mcp` again.'
+      );
+    }
+    if (servers.length === 0) {
+      return (
+        '### MCP servers\n\nNone configured. Add servers to the workspace `.mcp.json`, ' +
+        'or globally via `claude mcp add`.'
+      );
+    }
+
+    const icon: Record<string, string> = {
+      connected: '✔',
+      failed: '✖',
+      'needs-auth': '🔑',
+      pending: '⏸',
+      disabled: '⊘',
+    };
+    const lines = servers.map((s) => {
+      const tools = s.serverInfo?.name ? ` — \`${s.serverInfo.name}\`` : '';
+      return `- ${icon[s.status] ?? '•'} **${s.name}** — ${s.status}${tools}`;
+    });
+
+    const notes: string[] = [];
+    const failed = servers.filter((s) => s.status === 'failed');
+    const needsAuth = servers.filter((s) => s.status === 'needs-auth');
+    if (failed.length) notes.push(`${failed.length} server(s) failed to start — check their command and arguments.`);
+    if (needsAuth.length) notes.push(`${needsAuth.length} server(s) need authentication — run \`claude mcp\` to sign in.`);
+
+    return '### MCP servers\n\n' + lines.join('\n') + (notes.length ? '\n\n' + notes.map((n) => `> ${n}`).join('\n>\n') : '');
   }
 
   private releaseNotesText(): string {
@@ -943,10 +993,7 @@ export class SessionManager implements vscode.Disposable {
   private async beginSubscriptionLogin(): Promise<void> {
     const bin = resolveClaudeBinary();
     if (!bin) {
-      this.postAuthPrompt('error', {
-        method: 'subscription',
-        message: 'Could not locate the bundled Claude runtime. Reinstall the extension or use an API key.',
-      });
+      this.postAuthPrompt('error', { method: 'subscription', message: installHint() });
       return;
     }
     await this.setAuthMethod('subscription');

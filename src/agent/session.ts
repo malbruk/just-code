@@ -1,5 +1,5 @@
 import { loadSdk } from './sdk';
-import type { Options, Query, SDKMessage, SDKUserMessage } from './sdk';
+import type { McpServerStatus, Options, Query, SDKMessage, SDKUserMessage } from './sdk';
 import type {
   ChatMessage,
   ContentBlock,
@@ -142,6 +142,20 @@ export class AgentSession {
       await this.query.setMaxThinkingTokens(enabled ? null : 0);
     } catch (err) {
       this.deps.log.warn('setThinking failed', err);
+    }
+  }
+
+  /**
+   * Live status of every MCP server the runtime loaded, or undefined when no
+   * `query()` is running yet (the servers connect during session startup).
+   */
+  async mcpServerStatus(): Promise<McpServerStatus[] | undefined> {
+    if (!this.query) return undefined;
+    try {
+      return await this.query.mcpServerStatus();
+    } catch (err) {
+      this.deps.log.warn('mcpServerStatus failed', err);
+      return undefined;
     }
   }
 
@@ -301,6 +315,26 @@ export class AgentSession {
       if (ctx > 0) {
         this.lastContextTokens = ctx;
         if (beta.model) this.lastModel = beta.model;
+      }
+    }
+
+    // Text normally arrives as `stream_event` deltas (includePartialMessages),
+    // so we do not render it again here. But a *synthetic* assistant message —
+    // the CLI fabricates one when the API call itself fails (rate limit, 5xx, a
+    // captive-portal/proxy interception) — never streams. Its text block is the
+    // only place the failure is reported. Dropping it means the user sees the
+    // turn end with no output and no error at all.
+    const streamedText = message.blocks.some((b) => b.type === 'text' && b.text.length > 0);
+    if (!streamedText) {
+      for (const block of content) {
+        if (block['type'] === 'text' && typeof block['text'] === 'string' && block['text'].length > 0) {
+          const text = block['text'];
+          // A synthetic turn is always a failure report. Mirror it to the output
+          // channel too — the chat bubble may be a wall of proxy HTML, and the
+          // log is where a user goes to find out what actually happened.
+          this.deps.log.error(`API error (synthetic turn): ${text.slice(0, 500)}`);
+          this.appendDelta('text', text);
+        }
       }
     }
 

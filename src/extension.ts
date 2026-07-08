@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Logger } from './util/logger';
+import { clearBinaryCache } from './agent/cli';
 import { SessionManager } from './agent/sessionManager';
 import { ChatViewProvider } from './panel/chatViewProvider';
 import { MODELS } from './shared/protocol';
@@ -75,6 +76,17 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     context.secrets.onDidChange((e) => {
       if (e.key === 'green-code.apiKey') void manager.refreshAuth();
+    }),
+  );
+
+  // The resolved `claude` path is cached. Re-discover when the user points us at
+  // a different executable — otherwise the stale path survives until reload.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('green-code.claudeExecutablePath')) {
+        clearBinaryCache();
+        void manager.refreshAuth();
+      }
     }),
   );
 
