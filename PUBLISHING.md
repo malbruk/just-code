@@ -24,24 +24,53 @@ string — it must be an ID you own.
    "publisher": "your-publisher-id"
    ```
 
-## 2. Create a Personal Access Token
+## 2. Authenticate
 
-`vsce` authenticates with a PAT, not your password.
+`vsce` does not use your password. There are two mechanisms, and **the older one has an
+expiry date**.
+
+> **Global PATs are retired on 1 December 2026.** A PAT scoped to
+> `All accessible organizations` *is* a global PAT — that is Microsoft's own definition.
+> Creating them still works until that date ([the March 2026 block was cancelled](https://devblogs.microsoft.com/devops/retirement-of-global-personal-access-tokens-in-azure-devops/)),
+> but every existing one stops working afterwards. The
+> [VS Code docs](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)
+> now say: *"To keep publishing extensions, use secure automated publishing with Microsoft
+> Entra ID instead of PATs."*
+
+### Option A — Microsoft Entra ID (no expiry cliff)
+
+Supported by `vsce` ≥ 2.26.1 (we are on 3.9.2). Sign in with Azure CLI, then publish:
+
+```bash
+az login
+npm run publish:marketplace     # → vsce publish --azure-credential
+```
+
+For CI, Microsoft recommends workload identity federation or a managed identity rather than
+a stored secret. Note that `--azure-credential` with a **service principal** has known rough
+edges — see [vscode-vsce#1023](https://github.com/microsoft/vscode-vsce/issues/1023) and
+[#976](https://github.com/microsoft/vscode-vsce/issues/976) before wiring up a pipeline.
+
+### Option B — Personal Access Token (works until 1 Dec 2026)
+
+Simpler for a first manual publish. Just know it is a dead end.
 
 1. Go to <https://dev.azure.com> → user menu → **Personal access tokens** → **New Token**.
 2. Set:
-   - **Organization:** `All accessible organizations` ← this is the step people miss;
-     a token scoped to one org will fail with a confusing 401.
-   - **Scopes:** `Custom defined` → find **Marketplace** → tick **Manage**.
-   - **Expiration:** up to 1 year.
+   - **Organization:** `All accessible organizations` ← required; a token scoped to a single
+     org fails with a confusing 401. This is also precisely what makes it a *global* PAT.
+   - **Scopes:** `Custom defined` → scroll to **Marketplace** → tick **Manage**.
+   - **Expiration:** up to 1 year — but it will stop working on 1 Dec 2026 regardless.
 3. Copy the token. It is shown exactly once.
-
-Store it, then log in:
 
 ```bash
 npx @vscode/vsce login your-publisher-id
 # paste the PAT when prompted
+npm run publish:marketplace:pat   # → vsce publish   (no --azure-credential)
 ```
+
+`vsce login` only accepts a PAT. Entra has no login step — the credential is picked up from
+your `az login` session (or a managed identity in CI).
 
 ## 3. Create the GitHub repository
 
@@ -89,15 +118,15 @@ partnership with, sponsorship by, or endorsement by Anthropic."*
 ## 5. Publish
 
 ```bash
-npm run publish:check      # blocks on placeholders, stale changelog, bundled binary
-npm run publish:marketplace
+npm run publish:check          # blocks on placeholders, stale changelog, bundled binary
+npm run publish:marketplace    # preflight, then vsce publish --azure-credential
 ```
 
-`publish:marketplace` runs the preflight and then `vsce publish`. To cut a new version:
+Use `npm run publish:marketplace:pat` instead if you took Option B. To cut a new version:
 
 ```bash
 npm version patch          # or minor / major — bumps package.json
-# add a "## <version>" section to CHANGELOG.md
+# add a "## <version>" section to CHANGELOG.md   ← preflight fails without it
 npm run publish:marketplace
 ```
 

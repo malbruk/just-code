@@ -3,16 +3,16 @@
   "displayName": "Green Code",
   "description": "Agentic coding in VS Code, built on Anthropic's Claude Agent SDK, with a scoped-behaviour layer that keeps the assistant on software-engineering topics.",
   "version": "1.0.0",
-  "publisher": "community",
+  "publisher": "MalkaBruk",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/community/green-code.git"
+    "url": "https://github.com/malbruk/green-code.git"
   },
   "bugs": {
-    "url": "https://github.com/community/green-code/issues"
+    "url": "https://github.com/malbruk/green-code/issues"
   },
-  "homepage": "https://github.com/community/green-code#readme",
+  "homepage": "https://github.com/malbruk/green-code#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -384,7 +384,8 @@
     "lint": "eslint src",
     "vsix": "vsce package -o green-code.vsix",
     "publish:check": "node scripts/preflight.js",
-    "publish:marketplace": "npm run publish:check && vsce publish"
+    "publish:marketplace": "npm run publish:check && vsce publish --azure-credential",
+    "publish:marketplace:pat": "npm run publish:check && vsce publish"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.202"
