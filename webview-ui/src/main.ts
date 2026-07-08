@@ -316,7 +316,7 @@ function renderAuthGate(): void {
   } else {
     // choose
     body =
-      `<div class="auth-title">Sign in to Green Code</div>` +
+      `<div class="auth-title">Sign in to Yes Code</div>` +
       `<p class="auth-sub">Use your Claude subscription, or an Anthropic API key.</p>` +
       `<div class="auth-options">` +
       `<button type="button" class="auth-option" data-auth="subscription">` +

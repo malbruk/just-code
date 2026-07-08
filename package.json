@@ -1,6 +1,6 @@
 {
-  "name": "green-code-agent",
-  "displayName": "Green Code",
+  "name": "yescode",
+  "displayName": "Yes Code",
   "description": "Agentic coding in VS Code, built on Anthropic's Claude Agent SDK, with a scoped-behaviour layer that keeps the assistant on software-engineering topics.",
   "version": "1.0.0",
   "publisher": "MaBrukDev",
@@ -41,7 +41,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
-      "description": "Green Code runs an agent that edits files and executes shell commands in this workspace, and loads MCP servers declared in the workspace's .mcp.json — which start processes defined by the repository. Only enable it in workspaces you trust."
+      "description": "Yes Code runs an agent that edits files and executes shell commands in this workspace, and loads MCP servers declared in the workspace's .mcp.json — which start processes defined by the repository. Only enable it in workspaces you trust."
     }
   },
   "contributes": {
@@ -49,7 +49,7 @@
       "activitybar": [
         {
           "id": "green-code",
-          "title": "Green Code",
+          "title": "Yes Code",
           "icon": "media/activity-icon.svg"
         }
       ]
@@ -59,123 +59,123 @@
         {
           "type": "webview",
           "id": "green-code.chat",
-          "name": "Green Code",
+          "name": "Yes Code",
           "icon": "media/activity-icon.svg",
-          "contextualTitle": "Green Code"
+          "contextualTitle": "Yes Code"
         }
       ]
     },
     "commands": [
       {
         "command": "green-code.openChat",
-        "title": "Open Green Code",
-        "category": "Green Code",
+        "title": "Open Yes Code",
+        "category": "Yes Code",
         "icon": "$(comment-discussion)"
       },
       {
         "command": "green-code.newChat",
         "title": "New Chat",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(add)"
       },
       {
         "command": "green-code.newChatInEditor",
         "title": "New Chat in Editor",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(split-horizontal)"
       },
       {
         "command": "green-code.stop",
         "title": "Stop",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(stop-circle)"
       },
       {
         "command": "green-code.history",
         "title": "Show Chat History",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(history)"
       },
       {
         "command": "green-code.addSelectionToChat",
-        "title": "Add Selection to Green Code",
-        "category": "Green Code",
+        "title": "Add Selection to Yes Code",
+        "category": "Yes Code",
         "icon": "$(add)"
       },
       {
         "command": "green-code.addFileToChat",
-        "title": "Add File to Green Code",
-        "category": "Green Code"
+        "title": "Add File to Yes Code",
+        "category": "Yes Code"
       },
       {
         "command": "green-code.explainSelection",
         "title": "Explain Selection",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.fixSelection",
         "title": "Fix Selection with Claude",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.acceptAllEdits",
         "title": "Accept All Edits",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(check-all)"
       },
       {
         "command": "green-code.rejectAllEdits",
         "title": "Reject All Edits",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(discard)"
       },
       {
         "command": "green-code.acceptEdit",
         "title": "Accept Edit",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(check)"
       },
       {
         "command": "green-code.rejectEdit",
         "title": "Reject Edit",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(discard)"
       },
       {
         "command": "green-code.selectModel",
         "title": "Select Model",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.setPermissionMode",
         "title": "Set Permission Mode",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.signIn",
         "title": "Sign In / Set API Key",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.signOut",
         "title": "Sign Out",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.rewind",
         "title": "Rewind to Checkpoint",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(discard)"
       },
       {
         "command": "green-code.focusInput",
         "title": "Focus Chat Input",
-        "category": "Green Code"
+        "category": "Yes Code"
       },
       {
         "command": "green-code.moveView",
         "title": "Move Chat to Side Drawer…",
-        "category": "Green Code",
+        "category": "Yes Code",
         "icon": "$(layout-sidebar-right)"
       }
     ],
@@ -256,7 +256,7 @@
       ]
     },
     "configuration": {
-      "title": "Green Code",
+      "title": "Yes Code",
       "properties": {
         "green-code.model": {
           "type": "string",

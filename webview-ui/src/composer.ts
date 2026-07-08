@@ -131,7 +131,7 @@ export class Composer {
     this.root.innerHTML = `
       <div class="chips chips-external" role="list"></div>
       <div class="input-shell">
-        <textarea class="input" rows="1" placeholder="Ask Green Code…  (@ for files, / for commands)"></textarea>
+        <textarea class="input" rows="1" placeholder="Ask Yes Code…  (@ for files, / for commands)"></textarea>
         <div class="completions" hidden></div>
         <div class="input-bar">
           <div class="input-bar-left">

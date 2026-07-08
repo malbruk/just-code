@@ -41,7 +41,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   openInEditor(): void {
     const panel = vscode.window.createWebviewPanel(
       'green-code.chatEditor',
-      'Green Code',
+      'Yes Code',
       vscode.ViewColumn.Active,
       this.webviewOptions(),
     );
@@ -106,7 +106,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="${styleUri}" rel="stylesheet" />
-  <title>Green Code</title>
+  <title>Yes Code</title>
 </head>
 <body>
   <script nonce="${nonce}" src="${scriptUri}"></script>

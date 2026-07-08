@@ -11,7 +11,7 @@ let logger: Logger | undefined;
 export function activate(context: vscode.ExtensionContext): void {
   const log = new Logger();
   logger = log;
-  log.info('Green Code activating');
+  log.info('Yes Code activating');
 
   const manager = new SessionManager(context, log);
   const provider = new ChatViewProvider(context, manager, log);
@@ -30,7 +30,7 @@ export function activate(context: vscode.ExtensionContext): void {
         return fn(...args);
       } catch (err) {
         log.error(`Command ${id} failed`, err);
-        vscode.window.showErrorMessage(`Green Code: ${err instanceof Error ? err.message : String(err)}`);
+        vscode.window.showErrorMessage(`Yes Code: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
 
@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext): void {
     void context.globalState.update(TIP_KEY, true);
     void vscode.window
       .showInformationMessage(
-        'Green Code opens in the side bar. Move it to a side drawer to chat while your files and Explorer stay visible.',
+        'Yes Code opens in the side bar. Move it to a side drawer to chat while your files and Explorer stay visible.',
         'Move to Side Drawer',
         'Not now',
       )
@@ -120,13 +120,13 @@ async function moveChatToDrawer(): Promise<void> {
   } catch {
     await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
     void vscode.window.showInformationMessage(
-      'Drag the Green Code view into the Secondary Side Bar to dock it as a right-hand drawer.',
+      'Drag the Yes Code view into the Secondary Side Bar to dock it as a right-hand drawer.',
     );
   }
 }
 
 export function deactivate(): void {
-  logger?.info('Green Code deactivating');
+  logger?.info('Yes Code deactivating');
 }
 
 async function selectModel(manager: SessionManager): Promise<void> {

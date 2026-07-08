@@ -175,7 +175,7 @@ export class Transcript {
     this.emptyEl.innerHTML =
       `<div class="empty-inner">` +
       `<div class="empty-logo">${logoMark()}</div>` +
-      `<h1 class="empty-title">Green Code</h1>` +
+      `<h1 class="empty-title">Yes Code</h1>` +
       `<p class="empty-sub">Ask about your codebase, edit files, run commands. Here are a few ideas:</p>` +
       `<div class="example-grid">${prompts}</div>` +
       `</div>`;

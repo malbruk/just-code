@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 export class Logger {
   private readonly channel: vscode.OutputChannel;
 
-  constructor(name = 'Green Code') {
+  constructor(name = 'Yes Code') {
     this.channel = vscode.window.createOutputChannel(name);
   }
 
@@ -23,7 +23,7 @@ export class Logger {
     this.channel.appendLine(line);
     // Mirror to the Debug Console so activation is visible during `F5` too.
     const c = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
-    c(`[Green Code] ${parts.join(' ')}`);
+    c(`[Yes Code] ${parts.join(' ')}`);
   }
 
   info(...args: unknown[]): void {

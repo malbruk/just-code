@@ -1,20 +1,20 @@
-# Green Code
+# Yes Code
 
-**Green Code** is a VS Code extension for agentic software development, built on
+**Yes Code** is a VS Code extension for agentic software development, built on
 Anthropic's official **[Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk)**.
 It provides a chat panel that can read, search, edit, and run code in your workspace,
 with a **scoped-behaviour layer** that keeps the assistant on software-engineering
 topics and a **permission layer** that gates every action it takes on your machine.
 
-> **Independent project.** Green Code is not affiliated with, sponsored by, or
+> **Independent project.** Yes Code is not affiliated with, sponsored by, or
 > endorsed by Anthropic PBC. "Anthropic", "Claude", and "Claude Code" are trademarks
 > of Anthropic PBC, used here only to describe the underlying SDK and models this
 > extension consumes.
 
-## Why Green Code
+## Why Yes Code
 
 The Claude Agent SDK exposes the same agent loop and toolset that powers Anthropic's
-own coding tools. Green Code wraps that loop in a VS Code surface and adds one thing
+own coding tools. Yes Code wraps that loop in a VS Code surface and adds one thing
 the raw SDK does not provide: **an explicit, inspectable control layer**.
 
 That layer has two independent halves:
@@ -62,7 +62,7 @@ chatbot inside the editor.
 
 | Action | macOS | Windows/Linux |
 | --- | --- | --- |
-| Open Green Code | `⌘Esc` | `Ctrl+Esc` |
+| Open Yes Code | `⌘Esc` | `Ctrl+Esc` |
 | Add selection to chat | `⌘⌥K` | `Ctrl+Alt+K` |
 | Accept all edits | `⌘Enter` | `Ctrl+Enter` |
 | New chat (panel focused) | `⌘⌥N` | `Ctrl+Alt+N` |
@@ -70,7 +70,7 @@ chatbot inside the editor.
 ## Requirements
 
 - VS Code 1.90+
-- **Claude Code installed on your machine.** Green Code drives Anthropic's own Claude
+- **Claude Code installed on your machine.** Yes Code drives Anthropic's own Claude
   Code runtime locally; it does not bundle it (the binary is ~250 MB and platform
   specific). Install it once:
 
@@ -82,15 +82,15 @@ chatbot inside the editor.
   native installer, following npm launcher scripts to the real binary. If yours lives
   somewhere unusual, set `green-code.claudeExecutablePath`.
 
-Green Code must run in a **trusted workspace**. It edits files, executes shell commands,
+Yes Code must run in a **trusted workspace**. It edits files, executes shell commands,
 and starts MCP servers declared in the workspace's `.mcp.json` — all of which are defined
 by the repository you have open.
 
 ## Authentication
 
-Green Code does not operate a backend. It runs the Claude Agent SDK locally and the
+Yes Code does not operate a backend. It runs the Claude Agent SDK locally and the
 SDK talks to Anthropic directly; your credentials never leave your machine. Two methods
-are available (choose via **Green Code: Sign In**, or the `green-code.authMethod`
+are available (choose via **Yes Code: Sign In**, or the `green-code.authMethod`
 setting):
 
 - **API key** — an Anthropic API key from the [Claude Console](https://platform.claude.com/),
@@ -108,9 +108,9 @@ setting):
 > states that developers building products on the Agent SDK "should use API key
 > authentication", and that Anthropic "does not permit third-party developers to offer
 > Claude.ai login or to route requests through Free, Pro, or Max plan credentials on
-> behalf of their users." Green Code routes nothing on anyone's behalf — it invokes
+> behalf of their users." Yes Code routes nothing on anyone's behalf — it invokes
 > Anthropic's own runtime with your own local credentials — but if you intend to
-> **redistribute** Green Code rather than run it yourself, API-key mode is the
+> **redistribute** Yes Code rather than run it yourself, API-key mode is the
 > unambiguous choice.
 
 ## Settings
@@ -132,7 +132,7 @@ setting):
 
 ### MCP
 
-Green Code loads MCP servers from your user configuration (`claude mcp add`) and from the
+Yes Code loads MCP servers from your user configuration (`claude mcp add`) and from the
 workspace `.mcp.json`. Run `/mcp` in the chat to see live connection status for each one.
 This requires `green-code.loadProjectSettings` to be on — it is what enables the settings
 sources MCP is configured through.
@@ -148,7 +148,7 @@ npm run check-types  # tsc --noEmit
 ```
 
 Press **F5** in VS Code (or the "Run Extension" launch config) to open an Extension
-Development Host with the extension loaded, then open Green Code from the activity bar.
+Development Host with the extension loaded, then open Yes Code from the activity bar.
 
 ### Packaging a VSIX
 

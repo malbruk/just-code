@@ -234,7 +234,7 @@ export const INSTALL_DOCS_URL = 'https://code.claude.com/docs/en/quickstart';
 /** Human-readable install hint for the current platform. */
 export function installHint(): string {
   return (
-    'Claude Code was not found on this machine. Green Code runs Anthropic’s Claude Code runtime locally, ' +
+    'Claude Code was not found on this machine. Yes Code runs Anthropic’s Claude Code runtime locally, ' +
     'so it must be installed first:\n\n' +
     '```\nnpm install -g @anthropic-ai/claude-code\n```\n\n' +
     `See the [installation guide](${INSTALL_DOCS_URL}). ` +
@@ -302,7 +302,7 @@ export async function logout(bin: string): Promise<void> {
  * the extension panel.
  */
 export function runLoginInTerminal(bin: string, mode: 'subscription' | 'console', email?: string): vscode.Terminal {
-  const terminal = vscode.window.createTerminal({ name: 'Green Code Login' });
+  const terminal = vscode.window.createTerminal({ name: 'Yes Code Login' });
   const args = ['auth', 'login', mode === 'console' ? '--console' : '--claudeai'];
   if (email) args.push('--email', email);
   const quoted = `"${bin}" ${args.join(' ')}`;

@@ -301,7 +301,7 @@ export class SessionManager implements vscode.Disposable {
     if (!this.signedIn) {
       await this.refreshAuth();
       if (!this.signedIn) {
-        this.post({ type: 'error', message: 'Not signed in. Run “Green Code: Sign In” to connect your Claude subscription or an API key.' });
+        this.post({ type: 'error', message: 'Not signed in. Run “Yes Code: Sign In” to connect your Claude subscription or an API key.' });
         return;
       }
     }
@@ -414,7 +414,7 @@ export class SessionManager implements vscode.Disposable {
         this.echoCommand(raw);
         this.postSystem(
           'Subagents are defined by Markdown files in `.claude/agents/` (project) or `~/.claude/agents/` (global). ' +
-            'Create one there and Green Code will pick it up on the next request.',
+            'Create one there and Yes Code will pick it up on the next request.',
         );
         return 'handled';
 
@@ -507,7 +507,7 @@ export class SessionManager implements vscode.Disposable {
       (c) => `- \`${c.name}${c.argHint ? ` ${c.argHint}` : ''}\` — ${c.description}`,
     );
     return (
-      '### Green Code commands\n\n' +
+      '### Yes Code commands\n\n' +
       lines.join('\n') +
       '\n\nType `@` to attach files, `/` to run a command. Press **Shift+Enter** for a newline.'
     );
@@ -607,7 +607,7 @@ export class SessionManager implements vscode.Disposable {
 
   private releaseNotesText(): string {
     return (
-      '### Green Code\n\n' +
+      '### Yes Code\n\n' +
       'A community VS Code extension built on the Claude Agent SDK. ' +
       'See the repository CHANGELOG for the full history of changes.'
     );
@@ -1041,7 +1041,7 @@ export class SessionManager implements vscode.Disposable {
     await this.refreshAuth();
     if (this.signedIn) {
       vscode.window.showInformationMessage(
-        `Green Code: signed in${this.auth.email ? ` as ${this.auth.email}` : ''}${this.auth.plan ? ` (${this.auth.plan})` : ''}.`,
+        `Yes Code: signed in${this.auth.email ? ` as ${this.auth.email}` : ''}${this.auth.plan ? ` (${this.auth.plan})` : ''}.`,
       );
     } else {
       this.postAuthPrompt('error', {
@@ -1058,7 +1058,7 @@ export class SessionManager implements vscode.Disposable {
     await this.setAuthMethod('apiKey');
     await this.refreshAuth();
     if (this.signedIn) {
-      vscode.window.showInformationMessage('Green Code: API key saved.');
+      vscode.window.showInformationMessage('Yes Code: API key saved.');
     } else {
       this.postAuthPrompt('error', { method: 'apiKey', message: 'Could not validate the API key. Please try again.' });
     }
@@ -1084,7 +1084,7 @@ export class SessionManager implements vscode.Disposable {
       await clearApiKey(this.context);
     }
     await this.refreshAuth();
-    vscode.window.showInformationMessage('Green Code: signed out.');
+    vscode.window.showInformationMessage('Yes Code: signed out.');
   }
 
   dispose(): void {
