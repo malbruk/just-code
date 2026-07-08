@@ -1,0 +1,22 @@
+# Exclude sources and tooling; ship only dist/, media/, and the runtime SDK.
+.vscode/**
+.vscode-test/**
+src/**
+webview-ui/**
+.gitignore
+.git/**
+esbuild.js
+tsconfig.json
+docs/**
+scratch/**
+**/*.ts
+**/*.map
+
+# Exclude all of node_modules EXCEPT the Agent SDK and its native binary, which
+# the extension imports at runtime (kept external from the bundle on purpose).
+node_modules/**
+!node_modules/@anthropic-ai/**
+!node_modules/zod/**
+
+# But never ship other-platform native binaries or SDK source maps.
+node_modules/@anthropic-ai/**/*.map

@@ -1,0 +1,386 @@
+{
+  "name": "green-code",
+  "displayName": "Green Code",
+  "description": "Agentic coding in VS Code powered by the Claude Agent SDK — a community implementation of Claude Code.",
+  "version": "0.1.0",
+  "publisher": "community",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/community/green-code.git"
+  },
+  "bugs": {
+    "url": "https://github.com/community/green-code/issues"
+  },
+  "homepage": "https://github.com/community/green-code#readme",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Programming Languages",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "claude",
+    "anthropic",
+    "ai",
+    "agent",
+    "coding assistant",
+    "chat"
+  ],
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1f1f1f",
+    "theme": "dark"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "green-code",
+          "title": "Green Code",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "green-code": [
+        {
+          "type": "webview",
+          "id": "green-code.chat",
+          "name": "Green Code",
+          "icon": "media/activity-icon.svg",
+          "contextualTitle": "Green Code"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "green-code.openChat",
+        "title": "Open Green Code",
+        "category": "Green Code",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "green-code.newChat",
+        "title": "New Chat",
+        "category": "Green Code",
+        "icon": "$(add)"
+      },
+      {
+        "command": "green-code.newChatInEditor",
+        "title": "New Chat in Editor",
+        "category": "Green Code",
+        "icon": "$(split-horizontal)"
+      },
+      {
+        "command": "green-code.stop",
+        "title": "Stop",
+        "category": "Green Code",
+        "icon": "$(stop-circle)"
+      },
+      {
+        "command": "green-code.history",
+        "title": "Show Chat History",
+        "category": "Green Code",
+        "icon": "$(history)"
+      },
+      {
+        "command": "green-code.addSelectionToChat",
+        "title": "Add Selection to Green Code",
+        "category": "Green Code",
+        "icon": "$(add)"
+      },
+      {
+        "command": "green-code.addFileToChat",
+        "title": "Add File to Green Code",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.explainSelection",
+        "title": "Explain Selection",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.fixSelection",
+        "title": "Fix Selection with Claude",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.acceptAllEdits",
+        "title": "Accept All Edits",
+        "category": "Green Code",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "green-code.rejectAllEdits",
+        "title": "Reject All Edits",
+        "category": "Green Code",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "green-code.acceptEdit",
+        "title": "Accept Edit",
+        "category": "Green Code",
+        "icon": "$(check)"
+      },
+      {
+        "command": "green-code.rejectEdit",
+        "title": "Reject Edit",
+        "category": "Green Code",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "green-code.selectModel",
+        "title": "Select Model",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.setPermissionMode",
+        "title": "Set Permission Mode",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.signIn",
+        "title": "Sign In / Set API Key",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.signOut",
+        "title": "Sign Out",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.rewind",
+        "title": "Rewind to Checkpoint",
+        "category": "Green Code",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "green-code.focusInput",
+        "title": "Focus Chat Input",
+        "category": "Green Code"
+      },
+      {
+        "command": "green-code.moveView",
+        "title": "Move Chat to Side Drawer…",
+        "category": "Green Code",
+        "icon": "$(layout-sidebar-right)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "green-code.openChat",
+        "key": "ctrl+escape",
+        "mac": "cmd+escape"
+      },
+      {
+        "command": "green-code.addSelectionToChat",
+        "key": "ctrl+alt+k",
+        "mac": "cmd+alt+k",
+        "when": "editorHasSelection"
+      },
+      {
+        "command": "green-code.acceptAllEdits",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "green-code.hasPendingEdits"
+      },
+      {
+        "command": "green-code.newChat",
+        "key": "ctrl+alt+n",
+        "mac": "cmd+alt+n",
+        "when": "focusedView == green-code.chat"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "green-code.newChatInEditor",
+          "when": "view == green-code.chat",
+          "group": "navigation@1"
+        },
+        {
+          "command": "green-code.moveView",
+          "when": "view == green-code.chat",
+          "group": "1_layout@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "green-code.addSelectionToChat",
+          "when": "editorHasSelection",
+          "group": "green-code@1"
+        },
+        {
+          "command": "green-code.explainSelection",
+          "when": "editorHasSelection",
+          "group": "green-code@2"
+        },
+        {
+          "command": "green-code.fixSelection",
+          "when": "editorHasSelection",
+          "group": "green-code@3"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "green-code.addFileToChat",
+          "group": "green-code@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "green-code.acceptEdit",
+          "when": "false"
+        },
+        {
+          "command": "green-code.rejectEdit",
+          "when": "false"
+        },
+        {
+          "command": "green-code.focusInput",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Green Code",
+      "properties": {
+        "green-code.model": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "claude-opus-4-8",
+            "claude-sonnet-5",
+            "claude-haiku-4-5-20251001"
+          ],
+          "enumDescriptions": [
+            "Use the account default model",
+            "Claude Opus 4.8 — most capable",
+            "Claude Sonnet 5 — balanced",
+            "Claude Haiku 4.5 — fastest"
+          ],
+          "description": "The Claude model to use for the agent."
+        },
+        "green-code.permissionMode": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "acceptEdits",
+            "plan",
+            "bypassPermissions"
+          ],
+          "enumDescriptions": [
+            "Ask for permission before each tool use",
+            "Automatically accept file edits",
+            "Plan mode — read-only, propose a plan before acting",
+            "Bypass all permission prompts (use with caution)"
+          ],
+          "description": "Default permission mode for tool usage."
+        },
+        "green-code.authMethod": {
+          "type": "string",
+          "default": "subscription",
+          "enum": [
+            "subscription",
+            "apiKey"
+          ],
+          "enumDescriptions": [
+            "Use your Claude Pro/Max subscription via claude.ai login (OAuth)",
+            "Use an Anthropic API key (Console usage billing)"
+          ],
+          "description": "How to authenticate with Anthropic. 'subscription' signs in with your claude.ai account; 'apiKey' uses a Console API key.",
+          "scope": "application"
+        },
+        "green-code.apiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Your Anthropic API key (used only when `#green-code.authMethod#` is `apiKey`). Prefer the **Sign In** command, which stores the key in secret storage. Leave empty to use the `ANTHROPIC_API_KEY` environment variable.",
+          "scope": "application"
+        },
+        "green-code.maxTurns": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of agent turns per request."
+        },
+        "green-code.thinkingBudget": {
+          "type": "number",
+          "default": 0,
+          "description": "Max thinking tokens (0 = model default). Higher enables extended thinking."
+        },
+        "green-code.extendedThinking": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable extended thinking. Toggled live from the composer's Actions menu."
+        },
+        "green-code.effort": {
+          "type": "string",
+          "default": "default",
+          "enum": [
+            "default",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max"
+          ],
+          "enumDescriptions": [
+            "Use the model default (high)",
+            "Minimal thinking, fastest responses",
+            "Moderate thinking",
+            "Deep reasoning",
+            "Deeper than high (supported models only)",
+            "Maximum effort (supported models only)"
+          ],
+          "markdownDescription": "Reasoning effort level (SDK `effort`). Changing it applies to the next chat/turn."
+        },
+        "green-code.autoModelFallback": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "Switch to a fallback model when the primary is flagged or fails (SDK `fallbackModel`)."
+        },
+        "green-code.additionalDirectories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional directories the agent is allowed to access, beyond the workspace."
+        },
+        "green-code.loadProjectSettings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Load project settings and CLAUDE.md files from the workspace."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "vsix": "vsce package --no-dependencies -o green-code.vsix"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.202",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "@types/vscode": "~1.90.0",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3"
+  }
+}
