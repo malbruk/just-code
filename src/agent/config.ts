@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { CanUseTool, Options, ThinkingConfig } from './sdk';
 import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '../shared/protocol';
 import { resolveClaudeBinary } from './cli';
+import { SYSTEM_PROMPT_APPEND } from './systemPrompt';
 
 const SECRET_KEY = 'green-code.apiKey';
 
@@ -119,7 +120,9 @@ export function buildOptions(args: BuildOptionsArgs): Options {
 
   const options: Options = {
     cwd: root,
-    systemPrompt: { type: 'preset', preset: 'claude_code' },
+    systemPrompt: SYSTEM_PROMPT_APPEND
+      ? { type: 'preset', preset: 'claude_code', append: SYSTEM_PROMPT_APPEND }
+      : { type: 'preset', preset: 'claude_code' },
     tools: { type: 'preset', preset: 'claude_code' },
     settingSources: config.loadProjectSettings ? ['project'] : [],
     permissionMode,

@@ -34,6 +34,8 @@ const extensionConfig = {
   // node_modules instead. This means node_modules/@anthropic-ai/** must ship
   // alongside the extension (see .vscodeignore).
   external: ['vscode', '@anthropic-ai/claude-agent-sdk'],
+  // Markdown imports (e.g. the appended system prompt) are inlined as raw text.
+  loader: { '.md': 'text' },
   sourcemap: !production,
   minify: production,
   logLevel: 'silent',
