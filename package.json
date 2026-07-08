@@ -2,7 +2,7 @@
   "name": "green-code",
   "displayName": "Green Code",
   "description": "Agentic coding in VS Code powered by the Claude Agent SDK — a community implementation of Claude Code.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "community",
   "license": "MIT",
   "repository": {
@@ -371,7 +371,7 @@
     "package": "node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "vsix": "vsce package --no-dependencies -o green-code.vsix"
+    "vsix": "vsce package -o green-code.vsix"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.202",

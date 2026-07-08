@@ -116,7 +116,7 @@ export function buildOptions(args: BuildOptionsArgs): Options {
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_AUTH_TOKEN;
   }
-  env.CLAUDE_AGENT_SDK_CLIENT_APP = 'green-code/0.1.0';
+  env.CLAUDE_AGENT_SDK_CLIENT_APP = 'green-code/1.0.0';
 
   const options: Options = {
     cwd: root,
