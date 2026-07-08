@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- New icon: code brackets around a checkmark, in `#D97757`. The marketplace icon
+  (`media/icon.png`) is rendered from a new vector source (`media/icon.svg`), and the
+  activity-bar icon uses the same glyph. Note that VS Code paints activity-bar icons in
+  the theme's foreground colour, so the brand colour shows only on the marketplace icon.
+- Dropped two unused icon files from the package.
+
 ## 1.0.0
 
 First public release.

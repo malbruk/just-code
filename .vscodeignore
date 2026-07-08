@@ -15,6 +15,9 @@ PUBLISHING.md
 **/*.ts
 **/*.map
 
+# Icon source — kept in the repo to re-render media/icon.png, but only the .png ships.
+media/icon.svg
+
 # Exclude all of node_modules except the ONE package the host imports at runtime:
 # the Agent SDK, kept external from the bundle on purpose (see esbuild.js).
 #
