@@ -12,12 +12,19 @@ const stroke = (d: string): string =>
   `<path d="${d}" stroke="currentColor" stroke-width="1.8" ` +
   `stroke-linecap="round" stroke-linejoin="round"/>`;
 
-/** Claude Code wordmark glyph (the bracketed `>` from the activity icon). */
+/** The one colour the theme does not get to override: it identifies the product. */
+const BRAND = '#D97757';
+
+const brandStroke = (d: string, width: number): string =>
+  `<path d="${d}" stroke="${BRAND}" stroke-width="${width}" ` +
+  `stroke-linecap="round" stroke-linejoin="round"/>`;
+
+/** Brand mark: code brackets around a checkmark. Kept in step with media/icon.svg. */
 export const logo = (size = 28): string =>
   svg(
-    stroke('M6.5 4.5L2.8 12l3.7 7.5') +
-      stroke('M17.5 4.5L21.2 12l-3.7 7.5') +
-      stroke('M13.6 4l-3.2 16'),
+    brandStroke('M9 6L4 12L9 18', 1.9) +
+      brandStroke('M15 6L20 12L15 18', 1.9) +
+      brandStroke('M9 11.8L11 13.8L14.5 9.8', 2),
     size,
   );
 

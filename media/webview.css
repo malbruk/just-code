@@ -999,7 +999,7 @@ code {
 }
 
 .empty-logo {
-  color: var(--vscode-textLink-foreground);
+  /* The mark carries its own brand colour; do not tint it with the theme. */
   opacity: 0.9;
 }
 

@@ -26,6 +26,7 @@ import {
   globe as globeIcon,
   list as listIcon,
   sparkle as sparkleIcon,
+  logo,
 } from './icons.js';
 
 /**
@@ -174,7 +175,7 @@ export class Transcript {
     ).join('');
     this.emptyEl.innerHTML =
       `<div class="empty-inner">` +
-      `<div class="empty-logo">${logoMark()}</div>` +
+      `<div class="empty-logo">${logo(40)}</div>` +
       `<h1 class="empty-title">Yes Code</h1>` +
       `<p class="empty-sub">Ask about your codebase, edit files, run commands. Here are a few ideas:</p>` +
       `<div class="example-grid">${prompts}</div>` +
@@ -705,17 +706,6 @@ function statusIcon(status: ToolUseView['status']): string {
     default:
       return '';
   }
-}
-
-function logoMark(): string {
-  // Reuse the icons logo without importing to avoid a cycle at module top.
-  return (
-    '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-    '<path d="M6.5 4.5L2.8 12l3.7 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<path d="M17.5 4.5L21.2 12l-3.7 7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '<path d="M13.6 4l-3.2 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '</svg>'
-  );
 }
 
 function safeStringify(value: unknown): string {

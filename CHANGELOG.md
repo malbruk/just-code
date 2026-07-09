@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2
+
+- The chat panel's empty state showed the old `</>` mark, which 1.0.1 missed: that glyph
+  was inlined in the webview, not loaded from `media/`. It now uses the same brackets-and-
+  checkmark mark as the extension icon, in `#D97757`. Unlike the activity-bar icon, this
+  one is our own HTML, so the brand colour survives.
+- Removed a duplicate copy of the logo in `render.ts`. Its comment claimed the copy avoided
+  an import cycle, but `icons.ts` imports nothing and `render.ts` already imported from it.
+
 ## 1.0.1
 
 - New icon: code brackets around a checkmark, in `#D97757`. The marketplace icon
