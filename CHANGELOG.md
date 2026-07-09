@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.0.3
+
+- **Account & usage dialog.** The `/` menu and the new plan-limit banner open a dialog
+  showing the signed-in account, per-window usage meters, and a Day/Week breakdown of
+  what is consuming the plan. It reads the runtime's structured `/usage` control request
+  (`src/agent/usage.ts`); nothing in the extension touches credentials — the native
+  binary still owns the OAuth token.
+- **Conversation titles.** New chats are titled from the typed prompt by a cheap Haiku
+  summarization pass, run against a throwaway cwd so titling never leaves a junk
+  conversation in the history list.
+- **Delete a conversation from history.** Deleting is not extension-local: the SDK
+  unlinks the transcript and its subagent directory under `~/.claude/projects/`, so the
+  conversation also disappears from the `claude` CLI's `--resume`. It is irreversible,
+  so it goes through a modal confirmation first.
+- **Paste a screenshot into the composer.** Clipboard bitmaps become image attachments
+  and are sent as Anthropic `image` content blocks. They never touch disk, and oversized
+  images are downsampled client-side rather than being rejected by the API.
+- **`@`-mentions are inline again.** Picking a file from the completion popup inserts
+  `@path` into the textarea instead of adding a chip, and the file's contents are spliced
+  into the prompt on submit. The popup also drills down into folders.
+- **Actionable stream errors.** Fatal session errors were surfaced as whatever the native
+  runtime wrote before dying. They are now bucketed (auth, usage limit, config conflict,
+  runtime exit) with an explanation of what to do next.
+- **Coexistence notice.** Anthropic's official extension drives the same local runtime,
+  and shares its rotating OAuth token, its `~/.claude.json`, and the account's usage
+  limits. A one-time note now explains this, since a simultaneous prompt in both panels
+  can occasionally kill one session.
+- A "working" indicator at the tail of a streaming turn, typing out gerunds beside the
+  product mark.
+- New brand mark, and a shorter marketplace description.
+
 ## 1.0.2
 
 - The chat panel's empty state showed the old `</>` mark, which 1.0.1 missed: that glyph
