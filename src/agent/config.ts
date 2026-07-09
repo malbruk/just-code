@@ -109,12 +109,13 @@ function fallbackFor(model: ModelId): string {
   return model === 'claude-opus-4-8' ? 'claude-sonnet-5' : 'claude-opus-4-8';
 }
 
-/** Assemble the SDK `Options` for a `query()` call. */
-export function buildOptions(args: BuildOptionsArgs): Options {
-  const { config, authMethod, apiKey, model, permissionMode, effort, extendedThinking, autoModelFallback, canUseTool, abortController, resume, log } = args;
-  const root = getWorkspaceRoot();
-
-  // env REPLACES the subprocess environment, so spread process.env explicitly.
+/**
+ * Build the environment for a spawned `claude` process.
+ *
+ * `env` REPLACES the subprocess environment rather than extending it, so
+ * `process.env` is spread in explicitly.
+ */
+export function buildEnv(authMethod: AuthMethod, apiKey?: string): Record<string, string> {
   const env: Record<string, string> = { ...process.env } as Record<string, string>;
   if (authMethod === 'apiKey' && apiKey) {
     env.ANTHROPIC_API_KEY = apiKey;
@@ -125,6 +126,14 @@ export function buildOptions(args: BuildOptionsArgs): Options {
     delete env.ANTHROPIC_AUTH_TOKEN;
   }
   env.CLAUDE_AGENT_SDK_CLIENT_APP = 'yescode/1.0.0';
+  return env;
+}
+
+/** Assemble the SDK `Options` for a `query()` call. */
+export function buildOptions(args: BuildOptionsArgs): Options {
+  const { config, authMethod, apiKey, model, permissionMode, effort, extendedThinking, autoModelFallback, canUseTool, abortController, resume, log } = args;
+  const root = getWorkspaceRoot();
+  const env = buildEnv(authMethod, apiKey);
 
   const options: Options = {
     cwd: root,

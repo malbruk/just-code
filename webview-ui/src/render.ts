@@ -9,8 +9,10 @@ import type {
   ContentBlock,
   DiffView,
   PermissionRequest,
+  QuestionSpec,
   ToolUseView,
 } from '../../src/shared/protocol.js';
+import { OTHER_OPTION_LABEL } from '../../src/shared/protocol.js';
 import type { AppState } from './state.js';
 import { renderMarkdown, escapeHtml, firstStrongDir } from './markdown.js';
 import {
@@ -26,8 +28,9 @@ import {
   globe as globeIcon,
   list as listIcon,
   sparkle as sparkleIcon,
-  logo,
 } from './icons.js';
+import { logo } from './logo.js';
+import { WorkingIndicator } from './working.js';
 
 /**
  * Remembers the raw source text a text/thinking block element was last rendered
@@ -70,6 +73,8 @@ export class Transcript {
   private readonly permissionsEl: HTMLElement;
   private readonly emptyEl: HTMLElement;
   private autoScroll = true;
+  /** Lives for the length of one streaming turn; moved between blocks, never rebuilt. */
+  private working: WorkingIndicator | null = null;
 
   constructor(root: HTMLElement, private readonly cb: TranscriptCallbacks) {
     this.scroller = root;
@@ -122,6 +127,7 @@ export class Transcript {
     }
 
     this.renderPermissions(state.pendingPermissions);
+    this.stopWorkingIfIdle(state);
     this.scrollIfNeeded();
   }
 
@@ -136,7 +142,19 @@ export class Transcript {
     if (existing) this.syncMessage(existing, msg);
     else this.messagesEl.appendChild(this.renderMessage(msg));
     this.emptyEl.style.display = 'none';
+    this.stopWorkingIfIdle(state);
     this.scrollIfNeeded();
+  }
+
+  /**
+   * The indicator outlives any single `reconcileBlocks` call (that is the point),
+   * so nothing but a whole-state check can decide the turn is over.
+   */
+  private stopWorkingIfIdle(state: AppState): void {
+    if (this.working && !state.messages.some((m) => m.streaming)) {
+      this.working.stop();
+      this.working = null;
+    }
   }
 
   /**
@@ -203,11 +221,12 @@ export class Transcript {
    * Reconcile the block children of a `.msg-body` against `msg.blocks`, updating
    * matching blocks in place and only creating/removing what actually changed.
    * Blocks are keyed by their index (the block list only ever appends, and a
-   * given index never changes type). The blinking caret is removed and re-placed
-   * at the tail of the streaming text so it reads as a typing cursor.
+   * given index never changes type). The working indicator is detached first —
+   * rewriting a text block's `innerHTML` would otherwise destroy it — and then
+   * re-placed at the tail of the streaming content.
    */
   private reconcileBlocks(body: HTMLElement, msg: ChatMessage): void {
-    body.querySelector(':scope .caret')?.remove();
+    if (this.working && body.contains(this.working.el)) this.working.el.remove();
 
     const blocks = msg.blocks;
     for (let i = 0; i < blocks.length; i++) {
@@ -227,19 +246,11 @@ export class Transcript {
     });
 
     if (msg.streaming) {
-      const caret = document.createElement('span');
-      caret.className = 'caret';
-      const children = body.querySelectorAll<HTMLElement>(':scope > [data-block-index]');
-      const last = children[children.length - 1];
-      const lastMain = last?.querySelector<HTMLElement>(':scope > .step-main.block-text');
-      if (lastMain) {
-        // Tuck the cursor at the very end of the last paragraph so it reads as a
-        // typing caret rather than dropping onto its own line.
-        const tail = lastMain.querySelector<HTMLElement>(':scope > :last-child') ?? lastMain;
-        tail.appendChild(caret);
-      } else {
-        body.appendChild(caret);
-      }
+      if (!this.working) this.working = new WorkingIndicator();
+      // A step of its own at the tail of the timeline: the mark occupies the dot
+      // gutter, which puts the typed word on the same column as the prose above
+      // it, and the column's own gap sets the distance to the block above.
+      body.appendChild(this.working.el);
     }
   }
 
@@ -306,7 +317,11 @@ export class Transcript {
       for (const a of msg.attachments) {
         const chip = document.createElement('span');
         chip.className = 'chip chip-static';
-        chip.innerHTML = `${codeIcon()}<span class="chip-label">${escapeHtml(a.label)}</span>`;
+        const lead =
+          a.kind === 'image' && a.dataUri
+            ? `<img class="chip-thumb" src="${escapeHtml(a.dataUri)}" alt="" />`
+            : codeIcon();
+        chip.innerHTML = `${lead}<span class="chip-label">${escapeHtml(a.label)}</span>`;
         chips.appendChild(chip);
       }
       bubble.appendChild(chips);
@@ -437,7 +452,9 @@ export class Transcript {
         bodyWrap.appendChild(renderDiff(tool.diff));
       }
 
-      if (!tool.diff) {
+      // AskUserQuestion was answered in its own card; the raw questions/options
+      // JSON adds nothing, so the card shows only the answer (its result text).
+      if (!tool.diff && tool.name !== 'AskUserQuestion') {
         const inputStr = safeStringify(tool.input);
         if (inputStr && inputStr !== '{}') {
           const inputEl = document.createElement('pre');
@@ -471,12 +488,232 @@ export class Transcript {
     }
     for (const req of reqs) {
       if (this.permissionsEl.querySelector(`[data-perm-id="${cssEscape(req.id)}"]`)) continue;
-      this.permissionsEl.appendChild(renderPermissionCard(req));
+      // `AskUserQuestion` is a choice, not an authorization — it gets a card of
+      // its own. Cards are built once and keep their own selection state, so a
+      // re-render never clobbers a half-made choice.
+      this.permissionsEl.appendChild(
+        req.questions?.length ? renderQuestionCard(req) : renderPermissionCard(req),
+      );
     }
   }
 }
 
 // -- module-level render helpers -------------------------------------------
+
+/**
+ * The `AskUserQuestion` choice card: a chip-labelled question, its options as
+ * radio/checkbox rows, an always-present free-text "Other", and an optional
+ * side-by-side preview pane.
+ *
+ * Selection state lives in the DOM. Each question element carries the resolved
+ * answer on `data-q-answer`, so the submit handler in `main.ts` can read the
+ * whole card off the DOM without a parallel model.
+ */
+function renderQuestionCard(req: PermissionRequest): HTMLElement {
+  const questions = req.questions ?? [];
+  const card = document.createElement('div');
+  card.className = 'ask-card';
+  card.setAttribute('data-perm-id', req.id);
+
+  const head = document.createElement('div');
+  head.className = 'ask-head';
+  head.innerHTML =
+    `<span class="ask-icon">${sparkleIcon()}</span>` +
+    `<span class="ask-headline">${escapeHtml(questions.length > 1 ? 'Claude has some questions' : 'Claude has a question')}</span>`;
+  card.appendChild(head);
+
+  // A single-select lone question is fully answered by one click, so it submits
+  // on the spot (matching the CLI). Anything else needs an explicit Submit.
+  const needsSubmit = questions.length > 1 || questions.some((q) => q.multiSelect);
+
+  const actions = document.createElement('div');
+  actions.className = 'ask-actions';
+  const submit = document.createElement('button');
+  submit.type = 'button';
+  submit.className = 'btn btn-primary ask-submit';
+  submit.textContent = 'Submit';
+  submit.disabled = true;
+  submit.setAttribute('data-perm-decision', 'answer');
+  submit.setAttribute('data-perm-id', req.id);
+  submit.hidden = !needsSubmit;
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn btn-ghost';
+  cancel.textContent = 'Cancel';
+  cancel.setAttribute('data-perm-decision', 'deny');
+  cancel.setAttribute('data-perm-id', req.id);
+  actions.append(submit, cancel);
+
+  /** Enable Submit only once every question has an answer. */
+  const revalidate = (): void => {
+    const answered = questions.every((_, i) => {
+      const el = card.querySelector<HTMLElement>(`.ask-q[data-q-idx="${i}"]`);
+      return !!el?.getAttribute('data-q-answer');
+    });
+    submit.disabled = !answered;
+  };
+
+  questions.forEach((q, idx) => {
+    card.appendChild(renderQuestion(q, idx, { needsSubmit, submit, revalidate }));
+  });
+
+  card.appendChild(actions);
+  return card;
+}
+
+interface QuestionCallbacks {
+  needsSubmit: boolean;
+  submit: HTMLButtonElement;
+  revalidate: () => void;
+}
+
+function renderQuestion(q: QuestionSpec, idx: number, cb: QuestionCallbacks): HTMLElement {
+  const wrap = document.createElement('div');
+  wrap.className = 'ask-q';
+  wrap.setAttribute('data-q-idx', String(idx));
+  wrap.setAttribute('data-q-question', q.question);
+
+  if (q.header) {
+    const chip = document.createElement('span');
+    chip.className = 'ask-chip';
+    chip.textContent = q.header;
+    wrap.appendChild(chip);
+  }
+
+  const prompt = document.createElement('div');
+  prompt.className = 'ask-question';
+  prompt.textContent = q.question;
+  latchDir(prompt, q.question);
+  wrap.appendChild(prompt);
+
+  const body = document.createElement('div');
+  body.className = 'ask-body';
+  const list = document.createElement('div');
+  list.className = 'ask-options';
+  list.setAttribute('role', q.multiSelect ? 'group' : 'radiogroup');
+  body.appendChild(list);
+
+  // Previews are compared against each other, so the pane is only worth its
+  // width when at least one option carries one.
+  const hasPreview = q.options.some((o) => o.preview);
+  let previewPre: HTMLElement | undefined;
+  if (hasPreview) {
+    const pane = document.createElement('div');
+    pane.className = 'ask-preview';
+    previewPre = document.createElement('pre');
+    pane.appendChild(previewPre);
+    body.appendChild(pane);
+    wrap.classList.add('has-preview');
+  }
+  const showPreview = (text: string | undefined): void => {
+    if (previewPre) previewPre.textContent = text ?? '';
+  };
+
+  const otherInput = document.createElement('input');
+  otherInput.type = 'text';
+  otherInput.className = 'ask-other-input';
+  otherInput.placeholder = 'Type your answer…';
+  otherInput.hidden = true;
+
+  const options = [...q.options, { label: OTHER_OPTION_LABEL, description: 'Something else — type it in' }];
+  let otherRow: HTMLElement | undefined;
+
+  /**
+   * Keep the free-text field tied to the Other row's selection — including when
+   * Other is deselected indirectly, by picking a different radio option.
+   */
+  const syncOther = (): void => {
+    const on = !!otherRow?.classList.contains('selected');
+    otherInput.hidden = !on;
+    if (!on) otherInput.value = '';
+    // Other always needs typing, so it reveals Submit even in instant mode.
+    cb.submit.hidden = on ? false : !cb.needsSubmit;
+  };
+
+  /** Recompute `data-q-answer` from the checked rows and the Other field. */
+  const sync = (): void => {
+    const chosen = Array.from(list.querySelectorAll<HTMLElement>('.ask-opt.selected')).map((el) =>
+      el.classList.contains('is-other') ? otherInput.value.trim() : (el.getAttribute('data-q-value') ?? ''),
+    );
+    const answer = chosen.filter(Boolean).join(', ');
+    if (answer) wrap.setAttribute('data-q-answer', answer);
+    else wrap.removeAttribute('data-q-answer');
+    cb.revalidate();
+  };
+
+  options.forEach((opt, oi) => {
+    const isOther = opt.label === OTHER_OPTION_LABEL && oi === options.length - 1;
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'ask-opt' + (isOther ? ' is-other' : '');
+    row.setAttribute('data-q-value', opt.label);
+    row.setAttribute('role', q.multiSelect ? 'checkbox' : 'radio');
+    row.setAttribute('aria-checked', 'false');
+
+    const marker = document.createElement('span');
+    marker.className = q.multiSelect ? 'ask-marker box' : 'ask-marker dot';
+    const text = document.createElement('span');
+    text.className = 'ask-opt-text';
+    const label = document.createElement('span');
+    label.className = 'ask-opt-label';
+    label.textContent = opt.label;
+    latchDir(label, opt.label);
+    text.appendChild(label);
+    if (opt.description) {
+      const desc = document.createElement('span');
+      desc.className = 'ask-opt-desc';
+      desc.textContent = opt.description;
+      latchDir(desc, opt.description);
+      text.appendChild(desc);
+    }
+    row.append(marker, text);
+    if (isOther) otherRow = row;
+
+    const select = (): void => {
+      if (q.multiSelect) {
+        row.classList.toggle('selected');
+      } else {
+        for (const el of Array.from(list.querySelectorAll('.ask-opt'))) {
+          el.classList.remove('selected');
+          el.setAttribute('aria-checked', 'false');
+        }
+        row.classList.add('selected');
+      }
+      const on = row.classList.contains('selected');
+      row.setAttribute('aria-checked', String(on));
+
+      syncOther();
+      if (isOther && on) otherInput.focus();
+      if (!isOther && !q.multiSelect && opt.preview) showPreview(opt.preview);
+
+      sync();
+
+      // Instant submit: one click fully answered the card.
+      if (!cb.needsSubmit && !isOther && on && !cb.submit.disabled) cb.submit.click();
+    };
+
+    row.addEventListener('click', select);
+    // Focusing a row previews it without committing to it.
+    if (opt.preview) row.addEventListener('focus', () => showPreview(opt.preview));
+    list.appendChild(row);
+  });
+
+  otherInput.addEventListener('input', sync);
+  otherInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !cb.submit.disabled) {
+      e.preventDefault();
+      cb.submit.click();
+    }
+  });
+  list.appendChild(otherInput);
+
+  // Seed the preview pane with the first option that has one.
+  showPreview(q.options.find((o) => o.preview)?.preview);
+
+  wrap.appendChild(body);
+  return wrap;
+}
 
 function renderPermissionCard(req: PermissionRequest): HTMLElement {
   const card = document.createElement('div');
@@ -641,6 +878,7 @@ function toolIcon(name: string): string {
   if (n === 'webfetch' || n === 'websearch' || n.includes('fetch')) return globeIcon();
   if (n === 'todowrite' || n.includes('todo')) return listIcon();
   if (n === 'task' || n.includes('agent')) return sparkleIcon();
+  if (n === 'askuserquestion') return sparkleIcon();
   return fileIcon();
 }
 
@@ -649,7 +887,8 @@ function toolIcon(name: string): string {
  * tool name), preferring the host-supplied title, else the most salient input.
  */
 function toolSummary(tool: ToolUseView): string {
-  if (tool.title) return tool.title;
+  // A title that is just the tool name would render as "Skill Skill" in the header.
+  if (tool.title) return tool.title === tool.name ? '' : tool.title;
   const inp = tool.input ?? {};
   // Prefer a human description (Bash) over the raw command, which is shown in the
   // IN/OUT panel; then fall back to the most salient argument.

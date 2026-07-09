@@ -97,6 +97,20 @@ export function toolTitle(name: string, input: Record<string, unknown>, root?: s
       const desc = str(input, 'description') ?? str(input, 'subagent_type') ?? '';
       return `Task: ${oneLine(desc, 60)}`;
     }
+    case 'AskUserQuestion': {
+      const questions = input['questions'];
+      if (!Array.isArray(questions) || questions.length === 0) return 'Ask a question';
+      const first = questions[0] as Record<string, unknown>;
+      const text = str(first, 'question') ?? '';
+      const more = questions.length - 1;
+      return `Ask: ${oneLine(text, 60)}${more > 0 ? ` (+${more} more)` : ''}`;
+    }
+    case 'Skill': {
+      const skill = str(input, 'skill');
+      if (!skill) return name;
+      const args = str(input, 'args');
+      return `Skill: \`${skill}\`${args ? ` ${oneLine(args, 60)}` : ''}`;
+    }
     default:
       return rel ? `${name} \`${rel}\`` : name;
   }

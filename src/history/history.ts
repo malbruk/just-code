@@ -27,6 +27,23 @@ export async function listHistory(log: Logger): Promise<HistoryEntry[]> {
   }
 }
 
+/**
+ * Permanently delete a saved conversation.
+ *
+ * This is not extension-local bookkeeping: the SDK removes `{sessionId}.jsonl`
+ * and the `{sessionId}/` subagent-transcript directory from the shared Claude
+ * projects dir (`~/.claude/projects/<encoded-cwd>/`). The transcript therefore
+ * also disappears from `claude --resume` in the terminal, and the stored title
+ * goes with it. There is no undo, so callers must confirm first.
+ *
+ * Throws when the session file doesn't exist.
+ */
+export async function deleteHistorySession(sessionId: string, log: Logger): Promise<void> {
+  const { deleteSession } = await loadSdk();
+  await deleteSession(sessionId, { dir: getWorkspaceRoot() });
+  log.info(`Deleted session ${sessionId}`);
+}
+
 /** Load a past session and map it into `ChatMessage[]` for a fresh `init`. */
 export async function loadSessionMessages(sessionId: string, root: string | undefined, log: Logger): Promise<ChatMessage[]> {
   const { getSessionMessages } = await loadSdk();

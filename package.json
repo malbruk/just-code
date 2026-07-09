@@ -1,8 +1,8 @@
 {
   "name": "yescode",
   "displayName": "Yes Code",
-  "description": "Agentic coding in VS Code, built on Anthropic's Claude Agent SDK, with a scoped-behaviour layer that keeps the assistant on software-engineering topics.",
-  "version": "1.0.2",
+  "description": "Yes to code, no to everything else. A community VS Code chat extension on the Claude Agent SDK",
+  "version": "1.0.3",
   "publisher": "MaBrukDev",
   "license": "MIT",
   "repository": {

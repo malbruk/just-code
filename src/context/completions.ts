@@ -31,6 +31,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/review', description: 'Review the current changes or a pull request', argHint: '[target]' },
   { name: '/status', description: 'Show account, model, and workspace status' },
   { name: '/terminal-setup', description: 'Tips for using Claude Code in the terminal' },
+  { name: '/usage', description: 'Show account details and plan usage limits' },
   { name: '/vim', description: 'Toggle Vim keybindings in the editor' },
 ];
 
@@ -56,6 +57,7 @@ function slashCompletions(queryText: string): CompletionItem[] {
       label: c.argHint ? `${c.name} ${c.argHint}` : c.name,
       insert: `${c.name} `,
       detail: c.description,
+      kind: 'command' as const,
     }));
 }
 
@@ -64,17 +66,53 @@ function rank(name: string, q: string): number {
   return name.slice(1).toLowerCase().startsWith(q) ? 0 : 1;
 }
 
+/**
+ * Files *and* folders matching the `@` query. Folders are shown so the user can
+ * drill into one (picking it rewrites the query as `dir/`, listing its
+ * contents); both label and detail carry a trailing `/` so a folder never reads
+ * like a file.
+ */
 async function fileCompletions(queryText: string): Promise<CompletionItem[]> {
   const q = queryText.replace(/^@/, '').trim();
   const glob = q ? `**/*${q}*` : '**/*';
   // findFiles respects .gitignore via the default search excludes.
-  const uris = await vscode.workspace.findFiles(glob, '**/node_modules/**', 50);
+  const uris = await vscode.workspace.findFiles(glob, '**/node_modules/**', 400);
   const root = getWorkspaceRoot();
-  return uris
-    .map((uri) => {
-      const rel = relPath(root, uri.fsPath);
-      return { label: rel, insert: `@${rel} `, detail: 'File' } satisfies CompletionItem;
-    })
-    .sort((a, b) => a.label.length - b.label.length)
-    .slice(0, 25);
+  const files = uris.map((uri) => relPath(root, uri.fsPath));
+
+  // `findFiles` only ever returns files, so derive the folders from the matched
+  // files' ancestors — keeping just the ancestors that match the query too, or
+  // every file would drag its whole chain of parents into the list.
+  const needle = q.toLowerCase();
+  const dirs = new Set<string>();
+  for (const rel of files) {
+    const segments = rel.split('/');
+    for (let i = 1; i < segments.length; i++) {
+      const dir = segments.slice(0, i).join('/');
+      if (dir.toLowerCase().includes(needle)) dirs.add(dir);
+    }
+  }
+
+  const entries = [
+    ...[...dirs].map((rel) => ({ rel, isDir: true })),
+    ...files.map((rel) => ({ rel, isDir: false })),
+  ];
+  return entries
+    .sort((a, b) => a.rel.length - b.rel.length)
+    .slice(0, 25)
+    .map(({ rel, isDir }) => {
+      // Lead with the name and trail with the containing folder, so two files
+      // that share a name stay distinguishable. Root-level entries show no
+      // containing folder.
+      const slash = rel.lastIndexOf('/');
+      const name = slash === -1 ? rel : rel.slice(slash + 1);
+      return {
+        label: isDir ? `${name}/` : name,
+        // A folder inserts no trailing space: the caret lands after the `/` so
+        // the next keystroke keeps filtering inside it.
+        insert: isDir ? `@${rel}/` : `@${rel} `,
+        detail: slash === -1 ? undefined : `${rel.slice(0, slash)}/`,
+        kind: isDir ? 'directory' : 'file',
+      } satisfies CompletionItem;
+    });
 }

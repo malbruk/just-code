@@ -34,6 +34,24 @@ There is no unit-test runner; verify with the scripts below.
   `dist/extension.js`, calls `activate()`, and asserts every command declared in
   `package.json` is registered and the `yes-code.chat` view provider registers.
   Run this after touching activation, commands, or the manifest.
+- `node scratch/usage-logic-test.mjs` — bundles `src/agent/usage.ts`, issues a live
+  `/usage` control request, and pins the window mapping + banner thresholds.
+- `node scratch/account-dialog-test.mjs` — renders `webview-ui/src/account.ts` against
+  a DOM shim: markup, escaping, the Day/Week toggle, the API-key and error states.
+  Run both after touching account/usage code.
+- `node scratch/delete-session-test.mjs` — creates a synthetic transcript under a temp
+  workspace's project dir, then pins the real SDK's `deleteSession`: the `.jsonl` and the
+  subagent subdirectory are unlinked, `listSessions` stops returning it, and a second
+  delete throws. Run after touching history deletion.
+- `node scratch/mention-chip-test.mjs` — drives the real `Composer` against a DOM shim:
+  `@`-mention chip painting (offsets, escaping, non-mentions) and the completion
+  popup's folder drill-down. `node scratch/file-completions-test.mjs` pins the host
+  side of the same feature (folder derivation, trailing slashes, name/detail split).
+  Run both after touching `composer.ts` or `context/completions.ts`.
+- `node scratch/slash-usage-test.js` — drives the real `SessionManager.handleMessage`
+  with a stubbed `vscode` to check `/usage` routing. It pins the config stub to an
+  API-key session with no key, so an unknown command can't fall through and bill a
+  real turn. Extend it when adding a client-side slash command.
 - Native binary / auth path: `node -e` resolving `@anthropic-ai/claude-agent-sdk-<plat>/claude(.exe)`
   and running `claude auth status --json` (see git history / scratch for the exact snippet).
 
@@ -133,13 +151,20 @@ Host (`src/`):
 - `agent/config.ts` — reads settings, resolves auth, builds SDK `Options`
   (pins `pathToClaudeCodeExecutable` to the resolved binary).
 - `agent/cli.ts` — resolves & drives the native `claude` binary for auth.
+- `agent/usage.ts` — pure mapping of the runtime's structured `/usage` control request
+  (`AgentSession.getUsage()`, an **experimental** SDK API) into the account dialog's
+  view model, plus the plan-limit banner rules. Copy and the 70% display floor mirror
+  the official CLI. Nothing here reads credentials — the binary owns the OAuth token.
 - `agent/asyncQueue.ts` — the streaming-input prompt queue.
 - `tools/permissions.ts` — `canUseTool` bridge → `permissionRequest` / awaits decision.
 - `tools/diff.ts` — pre-edit snapshots, applied-diff compute, accept/reject, native
   diff editor, `yes-code.hasPendingEdits` context key.
 - `context/editorContext.ts` — tracks active file/selection/open files → `editorContext`.
 - `context/completions.ts` — `@`-file search + `/`-slash command list.
-- `history/history.ts` — `listSessions` / `getSessionMessages`.
+- `history/history.ts` — `listSessions` / `getSessionMessages` / `deleteSession`. Deleting is
+  **not** extension-local: the SDK unlinks `{sessionId}.jsonl` + the `{sessionId}/` subagent dir
+  from `~/.claude/projects/<encoded-cwd>/`, so the conversation also vanishes from the `claude`
+  CLI's `--resume`. Irreversible — `SessionManager.deleteSession` confirms with a modal first.
 - `panel/chatViewProvider.ts` — webview HTML (CSP + nonce), sidebar view + editor
   panel, message bridge fan-out.
 - `util/{logger,nonce,text}.ts`.
@@ -148,10 +173,13 @@ Webview (`webview-ui/src/`):
 - `main.ts` — bootstrap + `HostToWebview` router + global event delegation.
 - `state.ts` — `AppState` + reducers. Note the **pinned vs ephemeral attachment**
   model: the active-editor chip is ephemeral (tracks the editor, `ephemeral:true`);
-  `@`-mentions / add-to-chat produce **pinned** attachments that survive editor changes.
+  add-to-chat / uploads produce **pinned** attachments that survive editor changes.
 - `render.ts` — transcript reconciler, tool cards, diffs, thinking, permission cards.
-- `composer.ts` — input, chips, `@`/`/` autocomplete (picking a file adds a chip),
-  model/mode pickers, usage, send/stop.
+- `composer.ts` — input, chips, `@`/`/` autocomplete (picking a file inserts `@path`
+  inline in the textarea; `SessionManager.expandPrompt` splices the file's contents
+  into the prompt on submit), model/mode pickers, usage, send/stop.
+- `account.ts` — the "Account & usage" dialog (account rows, per-window meters, the
+  Day/Week "what's contributing" breakdown). Opened from the `/` menu and the banner.
 - `markdown.ts` — small self-contained renderer (HTML-escaped). `icons.ts`, `vscode.ts`.
 
 Relative imports across the two halves use explicit `.js` extensions

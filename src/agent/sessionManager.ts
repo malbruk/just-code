@@ -10,13 +10,17 @@ import type {
   HostToWebview,
   ModelId,
   PermissionMode,
+  RateLimitWarning,
   UsageInfo,
   WebviewState,
   WebviewToHost,
 } from '../shared/protocol';
 import { MODELS } from '../shared/protocol';
+import { toAccountUsage, warningFromEvent, warningFromWindows } from './usage';
 import { AgentSession } from './session';
+import type { ImageInput, ImageMediaType } from './session';
 import {
+  buildEnv,
   buildOptions,
   clearApiKey,
   getWorkspaceRoot,
@@ -33,17 +37,48 @@ import {
   startLogin,
   type LoginSession,
 } from './cli';
+import { CONCURRENCY_HINT_SHORT, formatForTranscript } from './errors';
+import type { ClassifiedError } from './errors';
+import { officialExtensionInstalled } from './coexist';
 import { PermissionBridge } from '../tools/permissions';
 import { PendingEditManager } from '../tools/diff';
 import { EditorContextTracker } from '../context/editorContext';
 import { handleCompletions, SLASH_COMMANDS } from '../context/completions';
-import { listHistory, loadSessionMessages } from '../history/history';
+import { deleteHistorySession, listHistory, loadSessionMessages } from '../history/history';
+import { fetchSessionTitle, persistSessionTitle } from '../history/title';
+import { generateTitle } from './titler';
 import { Logger } from '../util/logger';
 
 let userMsgSeq = 0;
 
-/** Extensions treated as images for "Upload from computer" (carried as data URIs). */
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg']);
+/**
+ * Extensions treated as images for "Upload from computer" (carried as data
+ * URIs). Limited to the media types the Messages API accepts — a `.bmp` or
+ * `.svg` sent as an image block is rejected, so those stay `file` attachments
+ * and get inlined as text instead.
+ */
+const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
+
+/** Media types accepted in an `image` content block. */
+const IMAGE_MEDIA_TYPES = new Set<string>(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+
+/**
+ * Decode the `image` attachments on a turn (pasted screenshots, uploaded
+ * pictures) into content blocks. Anything that isn't a base64 data URI of a
+ * supported media type is skipped rather than allowed to fail the request.
+ */
+function collectImages(attachments: Attachment[]): ImageInput[] {
+  const images: ImageInput[] = [];
+  for (const att of attachments) {
+    if (att.kind !== 'image' || !att.dataUri) continue;
+    const match = /^data:([^;,]+);base64,(.+)$/s.exec(att.dataUri);
+    if (!match) continue;
+    const mediaType = match[1].toLowerCase();
+    if (!IMAGE_MEDIA_TYPES.has(mediaType)) continue;
+    images.push({ mediaType: mediaType as ImageMediaType, data: match[2] });
+  }
+  return images;
+}
 
 /**
  * The host-side brain. Owns the current {@link AgentSession}, the permission
@@ -74,6 +109,16 @@ export class SessionManager implements vscode.Disposable {
   private signedIn = false;
   private auth: AuthInfo = { signedIn: false };
   private usage: UsageInfo | undefined;
+  // The plan-limit banner currently shown above the composer, if any. Survives
+  // New Chat and session switches — it describes the *account*, not the chat.
+  private rateLimitWarning: RateLimitWarning | undefined;
+  // Short generated title for the current conversation. Undefined until the
+  // first turn ends; the webview falls back to the prompt meanwhile.
+  private sessionTitle: string | undefined;
+  // The text the user typed to open this conversation — what the title is
+  // generated from — and whether we already tried. One attempt per chat.
+  private firstPromptText: string | undefined;
+  private titleAttempted = false;
   private loginSession: LoginSession | undefined;
 
   constructor(
@@ -114,6 +159,8 @@ export class SessionManager implements vscode.Disposable {
       signedIn: this.signedIn,
       auth: this.auth,
       slashCommands: SLASH_COMMANDS,
+      sessionTitle: this.sessionTitle,
+      rateLimitWarning: this.rateLimitWarning,
     };
   }
 
@@ -176,6 +223,9 @@ export class SessionManager implements vscode.Disposable {
       case 'loadSession':
         await this.loadSession(msg.sessionId);
         return;
+      case 'deleteSession':
+        await this.deleteSession(msg.sessionId);
+        return;
       case 'requestCompletions':
         await handleCompletions(msg.kind, msg.query, (m) => this.post(m));
         return;
@@ -205,6 +255,9 @@ export class SessionManager implements vscode.Disposable {
         return;
       case 'openUrl':
         await vscode.env.openExternal(vscode.Uri.parse(msg.url));
+        return;
+      case 'requestAccountUsage':
+        await this.sendAccountUsage();
         return;
       case 'signOut':
         await this.signOut();
@@ -259,10 +312,44 @@ export class SessionManager implements vscode.Disposable {
       initialMessages: seedMessages,
       onSessionId: (id) => this.log.info(`Session id: ${id}`),
       onUsage: (u) => (this.usage = u),
+      onRateLimit: (info) => this.setRateLimitWarning(warningFromEvent(info)),
+      onTurnComplete: (id) => void this.resolveSessionTitle(id),
+      onError: (e) => this.reportSessionError(e),
     });
     this.session = session;
     session.start();
     return session;
+  }
+
+  /**
+   * Surface a fatal session error. It always lands in the transcript; failures
+   * the user can act on also raise a native notification, because the panel may
+   * be hidden when the session dies.
+   */
+  private reportSessionError(error: ClassifiedError): void {
+    const official = officialExtensionInstalled();
+    this.post({ type: 'error', message: formatForTranscript(error, official) });
+
+    const suffix = error.concurrencyRelated && official ? ` ${CONCURRENCY_HINT_SHORT}` : '';
+    const show = (choice: string | undefined): void => {
+      if (choice === 'Sign In') void this.signIn();
+      else if (choice === 'Show Log') this.log.show();
+    };
+
+    switch (error.kind) {
+      case 'auth':
+        void vscode.window
+          .showErrorMessage(`Yes Code: ${error.message}${suffix}`, 'Sign In', 'Show Log')
+          .then(show);
+        break;
+      case 'configConflict':
+      case 'usageLimit':
+        void vscode.window.showWarningMessage(`Yes Code: ${error.message}${suffix}`, 'Show Log').then(show);
+        break;
+      default:
+        // `runtimeExit` / `unknown` are already visible inline; don't interrupt.
+        break;
+    }
   }
 
   newChat(): void {
@@ -272,8 +359,57 @@ export class SessionManager implements vscode.Disposable {
     this.pendingMessages = undefined;
     this.permissions.cancelAll('New chat');
     this.usage = undefined;
+    this.sessionTitle = undefined;
+    this.firstPromptText = undefined;
+    this.titleAttempted = false;
     void this.edits.rejectAll();
     this.sendInit();
+  }
+
+  /**
+   * After the first turn of a new conversation, title it from the text the user
+   * typed, push that to the webview, and store it on the transcript so the
+   * history list and a later resume agree.
+   *
+   * The native binary also titles the session by itself, but it summarizes the
+   * entire first message — which starts with the full text of every attached
+   * file — so its title describes whatever file was open rather than the
+   * question. See `generateTitle`.
+   */
+  private async resolveSessionTitle(sessionId: string | undefined): Promise<void> {
+    if (!sessionId || this.sessionTitle || this.titleAttempted) return;
+    this.titleAttempted = true;
+    const prompt = this.firstPromptText;
+    if (!prompt) return;
+
+    const cfg = readConfig();
+    const binary = resolveClaudeBinary();
+    if (!binary) return;
+    const apiKey = cfg.authMethod === 'apiKey' ? await resolveApiKey(this.context) : undefined;
+    const title = await generateTitle(prompt, {
+      env: buildEnv(cfg.authMethod, apiKey),
+      binary,
+      log: this.log,
+    });
+
+    // The user may have started a new chat or switched sessions while we waited.
+    if (!title || this.currentSessionId() !== sessionId) return;
+    this.sessionTitle = title;
+    this.post({ type: 'sessionTitle', title });
+    await persistSessionTitle(sessionId, title, getWorkspaceRoot(), this.log);
+  }
+
+  /** Show the stored title of a conversation reopened from history. */
+  private async loadPersistedTitle(sessionId: string): Promise<void> {
+    const title = await fetchSessionTitle(sessionId, getWorkspaceRoot(), this.log);
+    if (!title || this.currentSessionId() !== sessionId) return;
+    this.sessionTitle = title;
+    this.post({ type: 'sessionTitle', title });
+  }
+
+  /** The conversation on screen: the live session, or one parked by `loadSession`. */
+  private currentSessionId(): string | undefined {
+    return this.session?.sessionId ?? this.pendingResume;
   }
 
   async stop(): Promise<void> {
@@ -305,16 +441,21 @@ export class SessionManager implements vscode.Disposable {
         return;
       }
     }
+    // Title this conversation from what the user typed — not from `promptText`,
+    // which has the attached files' contents spliced in ahead of it.
+    if (this.firstPromptText === undefined && trimmed) this.firstPromptText = trimmed;
+
     const promptText = await this.expandPrompt(modelText, attachments);
+    const images = collectImages(attachments);
     const message: ChatMessage = {
       id: `u-${Date.now().toString(36)}-${userMsgSeq++}`,
       role: 'user',
-      blocks: [{ type: 'text', text }],
+      blocks: text ? [{ type: 'text', text }] : [],
       attachments,
       createdAt: Date.now(),
     };
     const session = await this.ensureSession();
-    session.submit(message, promptText);
+    session.submit(message, promptText, images);
   }
 
   // --- slash commands ------------------------------------------------------
@@ -386,6 +527,12 @@ export class SessionManager implements vscode.Disposable {
       case '/status':
         this.echoCommand(raw);
         this.postSystem(await this.statusText());
+        return 'handled';
+
+      case '/usage':
+        // The dialog asks for its own data once it's open, so there is nothing
+        // to fetch here — and nothing to echo, as with the other UI commands.
+        this.post({ type: 'openAccountDialog' });
         return 'handled';
 
       case '/doctor':
@@ -678,15 +825,54 @@ export class SessionManager implements vscode.Disposable {
     if (pick) await this.loadSession(pick.sessionId);
   }
 
-  /** Expand attachments into the prompt text sent to the model. */
+  /**
+   * Expand attachments *and* inline `@path` mentions into the prompt text sent
+   * to the model. The `@` autocomplete writes the path straight into the input
+   * (Claude Code's behaviour), so the mention is the only record of the file —
+   * it never becomes an attachment chip.
+   */
   private async expandPrompt(text: string, attachments: Attachment[]): Promise<string> {
     const parts: string[] = [];
+    const seen = new Set<string>();
     for (const att of attachments) {
+      if (att.kind === 'file' && att.path) seen.add(att.path);
       const block = await this.attachmentToBlock(att);
+      if (block) parts.push(block);
+    }
+    for (const rel of await this.mentionedFiles(text)) {
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      const block = await this.attachmentToBlock({ kind: 'file', path: rel, label: rel });
       if (block) parts.push(block);
     }
     parts.push(text);
     return parts.join('\n\n');
+  }
+
+  /**
+   * Workspace-relative paths named by `@mention` in the prompt, deduped and in
+   * order. A mention only counts when it resolves to a real file, so an email
+   * address, a decorator (`@Component`) or an npm scope (`@types/node`) is left
+   * alone. `..` is rejected so a mention cannot reach outside the workspace.
+   */
+  private async mentionedFiles(text: string): Promise<string[]> {
+    const root = getWorkspaceRoot();
+    if (!root) return [];
+    const found: string[] = [];
+    for (const match of text.matchAll(/(?:^|\s)@([^\s@]+)/g)) {
+      // Trailing punctuation is sentence structure, not part of the path.
+      const rel = match[1].replace(/[.,;:!?)\]}]+$/, '');
+      if (!rel || path.isAbsolute(rel) || rel.split(/[\\/]/).includes('..')) continue;
+      if (found.includes(rel)) continue;
+      const uri = vscode.Uri.file(path.join(root, rel));
+      try {
+        const stat = await vscode.workspace.fs.stat(uri);
+        if (stat.type === vscode.FileType.File) found.push(rel);
+      } catch {
+        // Not a workspace path — leave the text as the user wrote it.
+      }
+    }
+    return found;
   }
 
   private async attachmentToBlock(att: Attachment): Promise<string | undefined> {
@@ -865,7 +1051,7 @@ export class SessionManager implements vscode.Disposable {
   private async readAsDataUri(uri: vscode.Uri, ext: string): Promise<string | undefined> {
     try {
       const bytes = await vscode.workspace.fs.readFile(uri);
-      const mime = ext === 'jpg' ? 'jpeg' : ext === 'svg' ? 'svg+xml' : ext;
+      const mime = ext === 'jpg' ? 'jpeg' : ext;
       return `data:image/${mime};base64,${Buffer.from(bytes).toString('base64')}`;
     } catch (err) {
       this.log.warn('readAsDataUri failed', err);
@@ -915,13 +1101,54 @@ export class SessionManager implements vscode.Disposable {
       this.session = undefined;
       this.permissions.cancelAll('Switched session');
       this.usage = undefined;
+      this.sessionTitle = undefined;
+      this.firstPromptText = undefined;
+      // A reopened conversation was titled when it was first held; never retitle it.
+      this.titleAttempted = true;
       this.pendingResume = sessionId;
       this.pendingMessages = messages;
       this.sendInit();
+      // Read its stored title without making the transcript wait on a disk read.
+      void this.loadPersistedTitle(sessionId);
     } catch (err) {
       this.log.error('loadSession failed', err);
       this.post({ type: 'error', message: `Failed to load session: ${err instanceof Error ? err.message : String(err)}` });
     }
+  }
+
+  /**
+   * Delete a conversation from the history list.
+   *
+   * `deleteHistorySession` erases the transcript from the shared Claude projects
+   * directory, so this is irreversible and visible to the `claude` CLI too —
+   * hence the modal confirm. Deleting the conversation currently on screen would
+   * leave the view pointing at a transcript that no longer exists, so that case
+   * resets to a new chat.
+   */
+  private async deleteSession(sessionId: string): Promise<void> {
+    const confirm = await vscode.window.showWarningMessage(
+      'Delete this conversation?',
+      {
+        modal: true,
+        detail:
+          'The transcript is permanently removed from ~/.claude/projects, for the Claude Code CLI as well as this extension. This cannot be undone.',
+      },
+      'Delete',
+    );
+    if (confirm !== 'Delete') return;
+
+    try {
+      await deleteHistorySession(sessionId, this.log);
+      if (this.currentSessionId() === sessionId) this.newChat();
+    } catch (err) {
+      this.log.error('deleteSession failed', err);
+      this.post({
+        type: 'error',
+        message: `Failed to delete session: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    }
+    // Refresh either way: on failure the row may already be gone from disk.
+    await this.sendHistory();
   }
 
   private async rewind(messageId: string): Promise<void> {
@@ -936,6 +1163,56 @@ export class SessionManager implements vscode.Disposable {
       session.messages.splice(idx + 1);
       this.sendInit();
     }
+  }
+
+  // --- account & usage -----------------------------------------------------
+
+  /**
+   * Answer the webview's `requestAccountUsage`: ask the runtime for the
+   * structured `/usage` data and pair it with the CLI's auth status.
+   *
+   * This starts the agent process if it isn't already running — the control
+   * request works on a query that has never been sent a prompt, which is what
+   * lets the dialog open on a brand-new chat.
+   */
+  private async sendAccountUsage(): Promise<void> {
+    await this.refreshAuth();
+
+    if (readConfig().authMethod === 'apiKey') {
+      // No claude.ai plan behind an API key: report the account, skip the bars.
+      this.post({ type: 'accountUsage', usage: { auth: this.auth, limitsAvailable: false, windows: [] } });
+      return;
+    }
+
+    if (!resolveClaudeBinary()) {
+      this.post({ type: 'accountUsage', error: installHint() });
+      return;
+    }
+
+    try {
+      const session = await this.ensureSession();
+      const raw = await session.getUsage();
+      if (!raw) {
+        this.post({ type: 'accountUsage', error: 'The Claude Code runtime did not report any usage data.' });
+        return;
+      }
+      const usage = toAccountUsage(raw, this.auth);
+      this.post({ type: 'accountUsage', usage });
+      // Polled utilization is also the freshest limit signal we have — it can
+      // raise the banner before the first turn ever hits a rate-limit header.
+      this.setRateLimitWarning(warningFromWindows(usage.windows));
+    } catch (err) {
+      this.log.error('Failed to fetch account usage', err);
+      this.post({ type: 'accountUsage', error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  /** Show, replace, or clear the plan-limit banner. Only posts on a real change. */
+  private setRateLimitWarning(warning: RateLimitWarning | undefined): void {
+    const before = this.rateLimitWarning;
+    if (before?.message === warning?.message && before?.severity === warning?.severity) return;
+    this.rateLimitWarning = warning;
+    this.post({ type: 'rateLimitWarning', warning });
   }
 
   // --- auth ----------------------------------------------------------------
@@ -957,6 +1234,7 @@ export class SessionManager implements vscode.Disposable {
           method: 'subscription',
           email: status.email,
           plan: status.subscriptionType,
+          org: status.orgName,
         };
       }
     }

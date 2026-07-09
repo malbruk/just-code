@@ -9,11 +9,35 @@
   --cc-radius: 10px;
   --cc-radius-sm: 6px;
   --cc-gap: 12px;
+  /* Horizontal breathing room shared by the header, transcript and composer, so
+     the three columns line up on one edge (as in Claude Code). */
+  --cc-pad: 18px;
   --cc-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
   --cc-muted: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.9));
-  --cc-code-bg: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.12));
+  /*
+   * Code surfaces. Deliberately NOT --vscode-textCodeBlock-background: in most
+   * dark themes that is near-black, so a fence reads as a hole punched in the
+   * panel. A translucent wash of the foreground instead lifts code *above* the
+   * surface on dark themes and settles it below on light ones — a neutral grey
+   * chip either way, which is what Claude Code shows.
+   */
+  --cc-code-bg: color-mix(in srgb, var(--vscode-foreground) 9%, transparent);
+  --cc-code-head-bg: color-mix(in srgb, var(--vscode-foreground) 6%, transparent);
+  /*
+   * The theme's preformat gold, deepened. Mixing toward --vscode-foreground was
+   * the wrong axis: on a dark theme the body text is *lighter* than the gold, so
+   * softening it that way only made it paler. Mixing toward black lowers the
+   * lightness instead — the gold stays saturated but stops glowing.
+   */
+  --cc-code-fg: color-mix(in srgb, var(--vscode-textPreformat-foreground, #d7ba7d) 88%, #000);
   --cc-add: var(--vscode-gitDecoration-addedResourceForeground, #4ba85a);
   --cc-del: var(--vscode-gitDecoration-deletedResourceForeground, #d15a5a);
+  /* The brand green, for the focused composer + send button. Deliberately a
+     fixed brand colour, not a theme variable, so it reads the same everywhere.
+     Same hue as the icon's green, darkened so white text clears 3.5:1 on it. */
+  --cc-accent: #4a9433;
+  --cc-accent-hover: #56a63f;
+  --cc-accent-fg: #ffffff;
 }
 
 * {
@@ -60,7 +84,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px 6px 14px;
+  padding: 6px 10px 6px var(--cc-pad);
   min-height: 40px;
   border-bottom: 1px solid var(--cc-border);
   background: var(--cc-surface);
@@ -113,14 +137,14 @@ body {
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 16px 14px 8px;
+  padding: 18px var(--cc-pad) 10px;
   scroll-behavior: smooth;
 }
 
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
 }
 
 .msg {
@@ -156,9 +180,9 @@ body {
 .user-bubble {
   background: var(--vscode-input-background, rgba(128, 128, 128, 0.08));
   border: 1px solid var(--cc-border);
-  border-radius: var(--cc-radius-sm);
-  padding: 10px 12px;
-  line-height: 1.5;
+  border-radius: var(--cc-radius);
+  padding: 11px 14px;
+  line-height: 1.55;
   word-break: break-word;
 }
 
@@ -188,7 +212,7 @@ body {
 .msg-assistant .msg-body,
 .msg-system .msg-body {
   max-width: 100%;
-  line-height: 1.55;
+  line-height: 1.62;
   display: flex;
   flex-direction: column;
   gap: 15px;
@@ -216,11 +240,16 @@ body {
   min-width: 0;
 }
 
-/* keep the first line flush with the status dot */
+/* keep the first line flush with the status dot, and let the flex gap — not a
+   trailing paragraph margin — set the distance to the next step */
 .step-main.block-text > *:first-child,
 .step-main .thinking,
 .step-main .tool-card {
   margin-top: 0;
+}
+
+.step-main.block-text > *:last-child {
+  margin-bottom: 0;
 }
 
 .step-dot {
@@ -273,7 +302,7 @@ body {
 
 .markdown p,
 .block-text p {
-  margin: 0.35em 0;
+  margin: 0.6em 0;
 }
 
 .markdown h1,
@@ -281,13 +310,29 @@ body {
 .markdown h3,
 .markdown h4,
 .md-h {
-  margin: 0.6em 0 0.35em;
-  line-height: 1.3;
+  margin: 1.15em 0 0.5em;
+  line-height: 1.35;
   font-weight: 600;
 }
 
-.md-h {
-  font-size: 1.05em;
+/* A heading that opens a block has nothing above it to be spaced from. */
+.md-h:first-child {
+  margin-top: 0;
+}
+
+h1.md-h {
+  font-size: 1.28em;
+}
+h2.md-h {
+  font-size: 1.14em;
+}
+h3.md-h {
+  font-size: 1.02em;
+}
+h4.md-h,
+h5.md-h,
+h6.md-h {
+  font-size: 0.95em;
 }
 
 .markdown a,
@@ -302,23 +347,27 @@ body {
   color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
 }
 
+/* `color` is set explicitly: the webview's injected default stylesheet paints
+   every bare <code> in the theme's raw preformat gold, which is too loud next
+   to prose. --cc-code-fg is that gold, muted toward the body text. */
 .md-code,
 code {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.92em;
+  color: var(--cc-code-fg);
   background: var(--cc-code-bg);
   border-radius: 4px;
-  padding: 0.1em 0.35em;
+  padding: 0.12em 0.4em;
 }
 
 .md-list {
-  margin: 0.35em 0;
+  margin: 0.5em 0;
   /* logical, so bullets/numbers sit on the right of an RTL list */
-  padding-inline-start: 1.4em;
+  padding-inline-start: 1.5em;
 }
 
 .md-list li {
-  margin: 0.15em 0;
+  margin: 0.3em 0;
 }
 
 .md-quote {
@@ -389,7 +438,7 @@ code {
   justify-content: space-between;
   padding: 4px 8px;
   border-bottom: 1px solid var(--cc-border);
-  background: rgba(128, 128, 128, 0.08);
+  background: var(--cc-code-head-bg);
   font-size: 0.8em;
 }
 
@@ -423,14 +472,19 @@ code {
 
 .md-pre pre {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   overflow-x: auto;
+  line-height: 1.5;
 }
 
+/* Inside a fence the chip styling is off: no second background, and plain body
+   text rather than the inline-code gold (the fence itself says "this is code"). */
 .md-pre code {
   background: none;
+  color: var(--vscode-editor-foreground, var(--vscode-foreground));
   padding: 0;
   font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
   white-space: pre;
 }
 
@@ -897,6 +951,183 @@ code {
   flex-wrap: wrap;
 }
 
+/* ----------------------------------------------- AskUserQuestion choice card */
+
+.ask-card {
+  border: 1px solid var(--cc-border);
+  border-left: 2px solid var(--vscode-textLink-foreground, #4a9de0);
+  border-radius: var(--cc-radius-sm);
+  padding: 12px;
+  background: color-mix(in srgb, var(--cc-surface) 88%, #000);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  animation: fade-in 0.18s ease;
+}
+
+.ask-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ask-icon {
+  display: inline-flex;
+  color: var(--vscode-textLink-foreground);
+}
+
+.ask-headline {
+  font-weight: 600;
+}
+
+.ask-q + .ask-q {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cc-border);
+}
+
+.ask-chip {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.85em;
+  background: color-mix(in srgb, var(--vscode-textLink-foreground) 16%, transparent);
+  color: var(--vscode-textLink-foreground);
+}
+
+.ask-question {
+  margin-bottom: 10px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+/* Options and preview sit side by side when there is room, and stack when the
+   sidebar is narrow. */
+.ask-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.ask-options {
+  display: flex;
+  flex: 1 1 240px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ask-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  color: var(--vscode-foreground);
+  background: var(--cc-surface);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius-sm);
+}
+
+.ask-opt:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+}
+
+.ask-opt:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.ask-opt.selected {
+  border-color: var(--vscode-focusBorder, var(--vscode-textLink-foreground));
+  background: color-mix(in srgb, var(--vscode-textLink-foreground) 12%, transparent);
+}
+
+.ask-marker {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border: 1px solid var(--cc-muted);
+  background: transparent;
+}
+
+.ask-marker.dot {
+  border-radius: 50%;
+}
+
+.ask-marker.box {
+  border-radius: 3px;
+}
+
+.ask-opt.selected .ask-marker {
+  border-color: var(--vscode-textLink-foreground);
+  /* The inset ring reads as a filled radio/checkbox in every theme. */
+  background: var(--vscode-textLink-foreground);
+  box-shadow: inset 0 0 0 2px var(--cc-surface);
+}
+
+.ask-opt-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ask-opt-label {
+  font-weight: 500;
+}
+
+.ask-opt-desc {
+  color: var(--cc-muted);
+  font-size: 0.92em;
+  line-height: 1.35;
+}
+
+.ask-other-input {
+  font: inherit;
+  padding: 6px 9px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-focusBorder, var(--cc-border));
+  border-radius: var(--cc-radius-sm);
+}
+
+.ask-other-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, var(--cc-muted));
+}
+
+.ask-preview {
+  flex: 1 1 260px;
+  min-width: 0;
+  max-height: 320px;
+  overflow: auto;
+  padding: 8px 10px;
+  background: var(--vscode-textCodeBlock-background, var(--cc-surface));
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius-sm);
+}
+
+.ask-preview pre {
+  margin: 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.9em;
+  line-height: 1.4;
+  white-space: pre;
+  color: var(--cc-muted);
+}
+
+.ask-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
 /* ------------------------------------------------------------------ buttons */
 
 .btn {
@@ -911,6 +1142,11 @@ code {
 
 .btn:hover {
   background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.26));
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .btn-primary {
@@ -963,22 +1199,86 @@ code {
   }
 }
 
-.caret {
-  display: inline-block;
-  width: 7px;
-  height: 1.05em;
-  vertical-align: text-bottom;
-  /* logical + isolated: the typing caret trails the text on whichever side it ends */
-  margin-inline-start: 2px;
+/* ------------------------------------------------- streaming ("working") row */
+
+/*
+ * The tail of a streaming turn: the product mark, a gerund typed out character
+ * by character (driven from working.ts), and a caret. It is a step of its own —
+ * a direct child of `.msg-body`, so the column's 15px gap spaces it, and the
+ * mark stands in the timeline dot's gutter so the word starts on the same
+ * column as the prose above. Always LTR and isolated — the words are English
+ * and must not be dragged around by a Hebrew paragraph above them.
+ */
+.working {
+  display: flex;
+  align-items: center;
+  color: var(--cc-muted);
+  font-size: 0.92em;
+  direction: ltr;
   unicode-bidi: isolate;
-  background: var(--vscode-foreground);
-  animation: blink 1s steps(2, start) infinite;
-  border-radius: 1px;
 }
 
-@keyframes blink {
+/* The gutter: 7px dot + the step's 10px gap. The mark is left-aligned in it, so
+   it starts where the dots start and the word lands exactly on the text column. */
+.working-logo {
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 17px;
+  animation: working-pulse 2.4s ease-in-out infinite;
+}
+
+/* Opacity only. Scaling a 12px mark with this much detail shimmers. */
+@keyframes working-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
   50% {
-    opacity: 0;
+    opacity: 1;
+  }
+}
+
+.working-word {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Trails the word like a text cursor. It rides along as characters land, which
+   is the one motion the eye expects; it only blinks once the word settles. */
+.working-caret {
+  flex: none;
+  width: 2px;
+  height: 1.05em;
+  margin-inline-start: 3px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.8;
+  animation: working-caret 1.1s ease-in-out infinite;
+}
+
+.working.typing .working-caret {
+  animation: none;
+  opacity: 0.8;
+}
+
+@keyframes working-caret {
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.08;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working-logo,
+  .working-caret {
+    animation: none;
+  }
+  .working-logo {
+    opacity: 0.85;
   }
 }
 
@@ -1049,7 +1349,7 @@ code {
 }
 
 .composer {
-  padding: 10px 12px 12px;
+  padding: 10px var(--cc-pad) 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1065,7 +1365,12 @@ code {
   gap: 6px;
 }
 
-/* External (uploaded-from-computer) attachments sit above the input shell. */
+/* External (pasted / uploaded-from-computer) attachments sit *inside* the input
+   shell, above the textarea — the field grows to hold them, as in Claude Code. */
+/* Left padding matches the textarea's, so a card's edge lines up with the text. */
+.chips-external {
+  padding: 8px 12px 0;
+}
 .chips-external:empty {
   display: none;
 }
@@ -1131,6 +1436,62 @@ code {
   opacity: 0.6;
 }
 
+/* An external attachment reads as a small card rather than a pill: a preview
+   (or file glyph), the name, and the pixel size. The remove button stays out of
+   the way until the card is hovered or focused. */
+.chip-card {
+  gap: 5px;
+  padding: 2px 4px 2px 2px;
+  border-radius: var(--cc-radius-sm);
+  border: 1px solid var(--vscode-input-border, var(--cc-border));
+  background: var(--vscode-editorWidget-background, rgba(128, 128, 128, 0.12));
+  color: var(--vscode-foreground);
+  max-width: 220px;
+}
+
+/* Pasted/uploaded images preview their content instead of showing a glyph. */
+.chip-thumb,
+.chip-ico {
+  width: 17px;
+  height: 17px;
+  border-radius: 3px;
+  flex: none;
+  background: var(--vscode-editor-background);
+}
+
+.chip-thumb {
+  object-fit: cover;
+}
+
+.chip-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-descriptionForeground, var(--cc-muted));
+}
+
+.chip-dims {
+  flex: none;
+  font-size: 0.92em;
+  color: var(--vscode-descriptionForeground, var(--cc-muted));
+}
+
+/* Reserve the remove button's width so revealing it never reflows the card. */
+.chip-card .chip-x {
+  opacity: 0;
+  transition: opacity 80ms ease-in;
+}
+
+.chip-card:hover .chip-x,
+.chip-card:focus-within .chip-x {
+  opacity: 0.7;
+}
+
+.chip-card .chip-x:hover,
+.chip-card .chip-x:focus-visible {
+  opacity: 1;
+}
+
 .chip-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1162,11 +1523,23 @@ code {
 }
 
 .input-shell:focus-within {
-  border-color: var(--vscode-focusBorder, var(--vscode-textLink-foreground));
+  border-color: var(--cc-accent);
 }
 
+/* The textarea and the mirror that paints its @-mention chips are stacked here.
+   `.input-field` takes its height from the textarea, which autoGrow() sizes. */
+.input-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* `flex: none` is load-bearing: a flex-basis of 0% would override the inline
+   height autoGrow() sets, pinning the field to one row. Height and the
+   overflow switch are owned by autoGrow(), which caps growth at MAX_ROWS. */
 .input {
-  flex: 1;
+  flex: none;
   resize: none;
   border: none;
   outline: none;
@@ -1174,13 +1547,45 @@ code {
   color: var(--vscode-input-foreground, var(--vscode-foreground));
   font: inherit;
   line-height: 1.5;
-  padding: 10px 12px 6px;
-  max-height: 220px;
-  overflow-y: auto;
+  padding: 12px;
+  overflow-y: hidden;
+  /* Above the mirror, so the real text paints over the chip backgrounds. */
+  position: relative;
+  z-index: 1;
 }
 
 .input::placeholder {
   color: var(--vscode-input-placeholderForeground, var(--cc-muted));
+}
+
+/* Mirror of the textarea's text, sitting exactly behind it with invisible
+   glyphs. Every metric here MUST match `.input` above or the chips drift. */
+.input-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.5;
+  padding: 12px;
+  border: none;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+/* The `@path` chip: a quiet tint behind the path, not a badge. Horizontal
+   padding is cancelled by an equal negative margin so the chip can breathe
+   without nudging the text it sits under. `inactiveSelectionBackground` is the
+   theme's own "muted highlight", so this stays legible in light and dark. */
+.mention {
+  padding: 1px 2px;
+  margin: 0 -2px;
+  border-radius: 3px;
+  background: var(--vscode-editor-inactiveSelectionBackground, rgba(127, 140, 170, 0.16));
 }
 
 /* autocomplete popup */
@@ -1200,10 +1605,17 @@ code {
 
 .completion {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding: 6px 10px;
   cursor: pointer;
+}
+
+/* File/folder glyph. Dimmed so the name stays the thing you read first. */
+.completion-ico {
+  display: inline-flex;
+  flex: none;
+  opacity: 0.7;
 }
 
 .completion.active,
@@ -1232,6 +1644,7 @@ code {
   justify-content: space-between;
   gap: 8px;
   padding: 4px 6px 6px;
+  border-top: 1px solid var(--cc-border);
 }
 
 .input-bar-left,
@@ -1580,22 +1993,28 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--cc-radius-sm);
   border: none;
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
+  background: var(--cc-accent);
+  color: var(--cc-accent-fg);
   cursor: pointer;
   flex: none;
 }
 
 .send-btn:hover {
-  background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+  background: var(--cc-accent-hover);
 }
 
+/* Neutral, so "stop" never reads as the green "send" button mid-turn. */
 .send-btn.is-stop {
-  background: var(--vscode-errorForeground, #d15a5a);
+  background: var(--vscode-button-secondaryBackground, var(--cc-code-bg));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+}
+
+.send-btn.is-stop:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground));
 }
 
 /* ---------------------------------------------------------------- auth gate */
@@ -1782,24 +2201,34 @@ code {
 }
 
 .history-item {
+  position: relative;
+  display: flex;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--cc-radius-sm);
+}
+
+.history-item:hover,
+.history-item:focus-within {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
+}
+
+.history-item-open {
   display: flex;
   flex-direction: row;
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
   width: 100%;
+  min-width: 0;
   text-align: left;
   padding: 7px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--cc-radius-sm);
+  border: none;
+  border-radius: inherit;
   background: transparent;
   color: inherit;
   cursor: pointer;
   font: inherit;
-}
-
-.history-item:hover {
-  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.12));
 }
 
 .history-item-title {
@@ -1815,6 +2244,47 @@ code {
   flex: none;
   font-size: 0.82em;
   color: var(--cc-muted);
+}
+
+/*
+ * The trash button overlays the timestamp on hover rather than taking part in
+ * the row's layout, so revealing it never reflows the title.
+ */
+.history-item-delete {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: none;
+  border-radius: var(--cc-radius-sm);
+  background: transparent;
+  color: var(--cc-muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.history-item:hover .history-item-delete,
+.history-item:focus-within .history-item-delete {
+  display: flex;
+}
+
+.history-item:hover .history-item-meta,
+.history-item:focus-within .history-item-meta {
+  visibility: hidden;
+}
+
+.history-item-delete:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-errorForeground, #f14c4c);
+}
+
+.history-item-delete:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
 }
 
 .history-empty {
@@ -1838,4 +2308,323 @@ code {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground, rgba(128, 128, 128, 0.6));
+}
+
+/* ---------------------------------------------------------------------------
+   Plan-limit banner (above the composer)
+   --------------------------------------------------------------------------- */
+
+.limit-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--cc-radius-sm);
+  font-size: 0.92em;
+  line-height: 1.35;
+}
+
+.limit-banner[hidden] {
+  display: none;
+}
+
+.limit-banner.limit-warning {
+  color: var(--vscode-inputValidation-warningForeground, var(--vscode-foreground));
+  background: var(--vscode-inputValidation-warningBackground, color-mix(in srgb, #d9a441 16%, transparent));
+  border-color: var(--vscode-inputValidation-warningBorder, color-mix(in srgb, #d9a441 45%, transparent));
+}
+
+.limit-banner.limit-error {
+  color: var(--vscode-inputValidation-errorForeground, var(--vscode-foreground));
+  background: var(--vscode-inputValidation-errorBackground, color-mix(in srgb, #d15a5a 16%, transparent));
+  border-color: var(--vscode-inputValidation-errorBorder, color-mix(in srgb, #d15a5a 45%, transparent));
+}
+
+.limit-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.limit-link {
+  flex: none;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  opacity: 0.85;
+}
+
+.limit-link:hover {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Account & usage dialog
+   --------------------------------------------------------------------------- */
+
+.acct-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.42);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 24px 12px;
+  overflow-y: auto;
+}
+
+.acct-overlay[hidden] {
+  display: none;
+}
+
+.acct-panel {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-editorWidget-background, var(--cc-surface));
+  border: 1px solid var(--vscode-widget-border, var(--cc-border));
+  border-radius: var(--cc-radius);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+  animation: fade-in 0.12s ease;
+}
+
+.acct-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cc-border);
+}
+
+.acct-title {
+  font-size: 1.05em;
+  font-weight: 600;
+}
+
+.acct-close {
+  border: none;
+  background: none;
+  color: var(--cc-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+}
+
+.acct-close:hover {
+  color: var(--vscode-foreground);
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.acct-body {
+  padding: 4px 14px 16px;
+}
+
+.acct-section {
+  margin: 16px 0 8px;
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--cc-muted);
+}
+
+.acct-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.acct-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.acct-row-label {
+  color: var(--cc-muted);
+  flex: none;
+}
+
+.acct-row-value {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* -- usage meters -- */
+
+.acct-meter {
+  margin-bottom: 14px;
+}
+
+.acct-meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.acct-meter-pct {
+  color: var(--cc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--vscode-foreground) 14%, transparent);
+  overflow: hidden;
+}
+
+.acct-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--cc-accent);
+  transition: width 0.2s ease;
+}
+
+.acct-bar-fill.is-high {
+  background: var(--vscode-charts-yellow, #d9a441);
+}
+
+.acct-bar-fill.is-full {
+  background: var(--cc-del);
+}
+
+.acct-meter-sub,
+.acct-cost {
+  margin-top: 5px;
+  font-size: 0.86em;
+  color: var(--cc-muted);
+}
+
+.acct-manage {
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  color: var(--vscode-textLink-foreground);
+}
+
+.acct-manage:hover {
+  color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+  text-decoration: underline;
+}
+
+/* -- what's contributing -- */
+
+.acct-toggle {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--cc-radius-sm);
+  background: color-mix(in srgb, var(--vscode-foreground) 9%, transparent);
+}
+
+.acct-toggle-btn {
+  border: none;
+  background: none;
+  color: var(--cc-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: 3px 14px;
+  border-radius: 4px;
+}
+
+.acct-toggle-btn.active {
+  background: var(--vscode-editorWidget-background, var(--cc-surface));
+  color: var(--vscode-foreground);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.acct-note {
+  margin: 8px 0;
+  font-size: 0.86em;
+  line-height: 1.4;
+  color: var(--cc-muted);
+}
+
+.acct-dim {
+  color: var(--cc-muted);
+}
+
+.acct-behavior {
+  margin-bottom: 12px;
+}
+
+.acct-behavior-headline {
+  margin-bottom: 3px;
+}
+
+.acct-behavior-body {
+  font-size: 0.88em;
+  line-height: 1.45;
+  color: var(--cc-muted);
+  padding-left: 10px;
+  border-left: 2px solid var(--cc-border);
+}
+
+.acct-contrib {
+  margin-top: 14px;
+}
+
+.acct-contrib-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--cc-border);
+  font-size: 0.86em;
+}
+
+.acct-contrib-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 0.9em;
+}
+
+.acct-contrib-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acct-contrib-pct {
+  flex: none;
+  color: var(--cc-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.acct-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 0;
+  color: var(--cc-muted);
+}
+
+.acct-empty {
+  padding: 6px 0;
+  color: var(--cc-muted);
+  font-size: 0.9em;
+}
+
+.acct-error {
+  padding: 16px 0;
+  color: var(--cc-del);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }

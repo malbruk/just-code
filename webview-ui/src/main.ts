@@ -14,7 +14,7 @@ import type {
   HistoryEntry,
   PermissionDecision,
 } from '../../src/shared/protocol.js';
-import { clock, chatPlus, search as searchIcon } from './icons.js';
+import { clock, chatPlus, search as searchIcon, trash } from './icons.js';
 import { post, getPersisted, setPersisted } from './vscode.js';
 import {
   createInitialState,
@@ -35,6 +35,8 @@ import {
 } from './state.js';
 import { Transcript } from './render.js';
 import { Composer } from './composer.js';
+import { AccountDialog } from './account.js';
+import { imageSize } from './image.js';
 
 const state: AppState = createInitialState();
 const persisted = getPersisted();
@@ -45,7 +47,7 @@ const app = document.createElement('div');
 app.className = 'app';
 document.body.appendChild(app);
 
-// Top header: the session title on the left, new-chat + history actions on the
+// Top header: the session title on the left, history + new-chat actions on the
 // right — mirroring the layout of the official Claude Code panel.
 const header = document.createElement('div');
 header.className = 'chat-header';
@@ -55,8 +57,8 @@ headerTitle.textContent = 'Untitled';
 const headerActions = document.createElement('div');
 headerActions.className = 'chat-header-actions';
 headerActions.innerHTML =
-  `<button type="button" class="chat-header-btn" data-header-action="new-chat" title="New chat" aria-label="New chat">${chatPlus()}</button>` +
-  `<button type="button" class="chat-header-btn" data-header-action="history" title="Chat history" aria-label="Chat history">${clock(17)}</button>`;
+  `<button type="button" class="chat-header-btn" data-header-action="history" title="Chat history" aria-label="Chat history">${clock(17)}</button>` +
+  `<button type="button" class="chat-header-btn" data-header-action="new-chat" title="New chat" aria-label="New chat">${chatPlus()}</button>`;
 header.append(headerTitle, headerActions);
 
 const scroller = document.createElement('div');
@@ -78,12 +80,18 @@ function startNewChat(): void {
   state.messages = [];
   state.pendingPermissions = [];
   state.usage = undefined;
+  state.sessionTitle = undefined;
   hideHistory();
   render();
 }
 
-/** Derive the header title: "Untitled" until the first user turn, then its text. */
+/**
+ * Derive the header title. The host supplies a short generated title once the
+ * first turn completes; until then fall back to the first prompt's own text,
+ * so the header is never blank mid-turn.
+ */
 function sessionTitle(s: AppState): string {
+  if (s.sessionTitle) return s.sessionTitle;
   const firstUser = s.messages.find((m) => m.role === 'user');
   if (!firstUser) return 'Untitled';
   const text = firstUser.blocks
@@ -123,11 +131,14 @@ const composer = new Composer({
     removeAttachment(state, index);
     composer.update(state);
   },
-  onAddFileAttachment: (path) => {
-    const label = path.split(/[\\/]/).pop() || path;
-    addAttachment(state, { kind: 'file', path, label });
+  onAddImageAttachment: (attachment) => {
+    addAttachment(state, attachment);
     composer.update(state);
-    composer.focus();
+  },
+  onAttachmentError: (message) => {
+    appendError(state, message);
+    transcript.render(state);
+    transcript.forceScroll();
   },
   onSetModel: (model) => {
     state.model = model;
@@ -158,9 +169,17 @@ const composer = new Composer({
     const lastUser = [...state.messages].reverse().find((m) => m.role === 'user');
     if (lastUser) post({ type: 'rewind', messageId: lastUser.id });
   },
+  onOpenAccount: () => accountDialog.open(),
 });
 
 footer.appendChild(composer.root);
+
+// Account & usage dialog — opened from the `/` menu and from the limit banner.
+const accountDialog = new AccountDialog({
+  onRequest: () => post({ type: 'requestAccountUsage' }),
+  onOpenUrl: (url) => post({ type: 'openUrl', url }),
+});
+app.appendChild(accountDialog.root);
 
 // Auth gate replaces the composer when signed out. Rendered per sign-in stage.
 const authGate = document.createElement('div');
@@ -199,17 +218,26 @@ function historyWhen(ms: number): string {
 }
 
 function renderHistory(entries: HistoryEntry[]): void {
+  // The host re-pushes the list after a delete. That refresh must not discard
+  // what the user has already typed into the filter.
+  const open = !historyOverlay.hidden;
+  const query = open ? currentHistoryQuery() : '';
+
   historyEntries = entries;
   historyOverlay.innerHTML =
     `<div class="history-panel" role="dialog" aria-label="Chat history">` +
     `<div class="history-search">${searchIcon()}` +
-    `<input type="text" class="history-search-input" placeholder="Search sessions…" autocomplete="off" spellcheck="false" />` +
+    `<input type="text" class="history-search-input" placeholder="Search sessions…" autocomplete="off" spellcheck="false" value="${esc(query)}" />` +
     `</div>` +
     `<div class="history-list-wrap"></div>` +
     `</div>`;
-  renderHistoryList('');
+  renderHistoryList(query);
   const input = historyOverlay.querySelector<HTMLInputElement>('.history-search-input');
   if (input) setTimeout(() => input.focus(), 0);
+}
+
+function currentHistoryQuery(): string {
+  return historyOverlay.querySelector<HTMLInputElement>('.history-search-input')?.value ?? '';
 }
 
 /** (Re)render the filtered session list inside the popup. */
@@ -230,13 +258,19 @@ function renderHistoryList(query: string): void {
   }
 
   wrap.className = 'history-list';
+  // The row is a div, not a button: it holds the open button *and* the delete
+  // button, and nesting a button inside a button is invalid HTML.
   wrap.innerHTML = filtered
     .map(
       (e) =>
-        `<button type="button" class="history-item" data-session="${esc(e.sessionId)}">` +
+        `<div class="history-item">` +
+        `<button type="button" class="history-item-open" data-session-open="${esc(e.sessionId)}">` +
         `<span class="history-item-title">${esc(e.title)}</span>` +
         `<span class="history-item-meta">${esc(historyWhen(e.updatedAt))}</span>` +
-        `</button>`,
+        `</button>` +
+        `<button type="button" class="history-item-delete" data-session-delete="${esc(e.sessionId)}"` +
+        ` title="Delete conversation" aria-label="Delete conversation">${trash()}</button>` +
+        `</div>`,
     )
     .join('');
 }
@@ -252,9 +286,18 @@ historyOverlay.addEventListener('click', (e) => {
     hideHistory();
     return;
   }
-  const item = target.closest('[data-session]');
+  // Delete is checked first: its button sits inside the row, and it must not
+  // also open the conversation it is about to remove. The host confirms and
+  // then re-pushes the list, so the popup stays open.
+  const del = target.closest('[data-session-delete]');
+  if (del) {
+    const sessionId = del.getAttribute('data-session-delete') ?? '';
+    if (sessionId) post({ type: 'deleteSession', sessionId });
+    return;
+  }
+  const item = target.closest('[data-session-open]');
   if (item) {
-    const sessionId = item.getAttribute('data-session') ?? '';
+    const sessionId = item.getAttribute('data-session-open') ?? '';
     if (sessionId) post({ type: 'loadSession', sessionId });
     hideHistory();
   }
@@ -268,7 +311,11 @@ historyOverlay.addEventListener('input', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !historyOverlay.hidden) {
+  if (e.key !== 'Escape') return;
+  if (accountDialog.isOpen) {
+    e.preventDefault();
+    accountDialog.close();
+  } else if (!historyOverlay.hidden) {
     e.preventDefault();
     hideHistory();
   }
@@ -416,10 +463,22 @@ document.addEventListener('click', (e) => {
   if (permBtn) {
     const id = permBtn.getAttribute('data-perm-id') ?? '';
     const kind = permBtn.getAttribute('data-perm-decision');
-    const decision: PermissionDecision =
-      kind === 'deny'
-        ? { behavior: 'deny' }
-        : { behavior: 'allow', remember: kind === 'always' };
+    let decision: PermissionDecision;
+    if (kind === 'deny') {
+      decision = { behavior: 'deny' };
+    } else if (kind === 'answer') {
+      // `AskUserQuestion`: the card mirrors each resolved choice onto
+      // `data-q-answer`, keyed by the question text the tool sent us.
+      const answers: Record<string, string> = {};
+      for (const q of Array.from(permBtn.closest('.ask-card')?.querySelectorAll('.ask-q') ?? [])) {
+        const question = q.getAttribute('data-q-question');
+        const answer = q.getAttribute('data-q-answer');
+        if (question && answer) answers[question] = answer;
+      }
+      decision = { behavior: 'allow', answers };
+    } else {
+      decision = { behavior: 'allow', remember: kind === 'always' };
+    }
     post({ type: 'permissionDecision', id, decision });
     resolvePermission(state, id);
     render();
@@ -564,6 +623,25 @@ function route(msg: HostToWebview): void {
       composer.update(state);
       break;
 
+    case 'openAccountDialog':
+      accountDialog.open();
+      break;
+
+    case 'accountUsage':
+      if (msg.usage) accountDialog.show(msg.usage);
+      else accountDialog.showError(msg.error ?? 'Account and usage data is unavailable.');
+      break;
+
+    case 'rateLimitWarning':
+      state.rateLimitWarning = msg.warning;
+      composer.update(state);
+      break;
+
+    case 'sessionTitle':
+      state.sessionTitle = msg.title;
+      updateHeader();
+      break;
+
     case 'history':
       renderHistory(msg.entries);
       historyOverlay.hidden = false;
@@ -580,11 +658,24 @@ function route(msg: HostToWebview): void {
       transcript.forceScroll();
       break;
 
-    case 'addAttachment':
-      addAttachment(state, msg.attachment);
+    case 'addAttachment': {
+      const attachment = msg.attachment;
+      addAttachment(state, attachment);
       composer.update(state);
       composer.focus();
+      // The host builds image chips without dimensions (it never decodes the
+      // bytes); measure here so an uploaded picture shows the same "W×H" as a
+      // pasted one. `addAttachment` stores the object itself, so mutating it is
+      // enough — only a re-render is needed.
+      if (attachment.kind === 'image' && attachment.dataUri && !attachment.width) {
+        void imageSize(attachment.dataUri).then((size) => {
+          if (!size || !state.pinned.includes(attachment)) return;
+          Object.assign(attachment, size);
+          composer.update(state);
+        });
+      }
       break;
+    }
 
     case 'seedInput':
       composer.fill(msg.text);

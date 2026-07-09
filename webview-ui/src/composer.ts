@@ -1,9 +1,10 @@
 /**
  * The bottom input region, rebuilt to mirror the official Claude Code composer:
  *
- *   ┌─ external attachments (uploaded from computer) ──────────────────┐
- *   │  textarea                                                        │
- *   │  project attachments (@-mentions / editor context)               │
+ *   ┌──────────────────────────────────────────────────────────────────┐
+ *   │  [▣ image.png 718×581]  ← external attachments (pasted/uploaded) │
+ *   │  textarea  (@-mentions live here, inline)                        │
+ *   │  project attachments (editor context / "Add to chat")            │
  *   │  [+] [/]                              ⚡ Auto mode        [↑]     │
  *   └──────────────────────────────────────────────────────────────────┘
  *
@@ -20,12 +21,14 @@ import type {
   EffortLevel,
   ModelId,
   PermissionMode,
+  RateLimitWarning,
   SlashCommand,
   UsageInfo,
 } from '../../src/shared/protocol.js';
 import { MODELS, EFFORT_LEVELS } from '../../src/shared/protocol.js';
 import type { AppState } from './state.js';
 import { escapeHtml } from './markdown.js';
+import { imagesFromDataTransfer, toImageAttachment } from './image.js';
 import {
   send as sendIcon,
   stop as stopIcon,
@@ -40,6 +43,7 @@ import {
   list,
   upload,
   file as fileIcon,
+  folder as folderIcon,
   globe,
 } from './icons.js';
 
@@ -62,6 +66,18 @@ const PERMISSION_MODES: {
 /** Order used when cycling modes with Shift+Tab (matches Claude Code). */
 const MODE_CYCLE: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions'];
 
+/** Rows the input grows to before it starts scrolling (matches Claude Code). */
+const MAX_ROWS = 10;
+
+/**
+ * An `@path` mention in the prompt, and the trailing punctuation that is
+ * sentence structure rather than part of the path. Both must stay in step with
+ * the host's mention scanner (`SessionManager.mentionedFiles`), which decides
+ * which of these the model actually receives file contents for.
+ */
+const MENTION_RE = /(?:^|\s)@([^\s@]+)/g;
+const MENTION_TRAILING_PUNCT = /[.,;:!?)\]}]+$/;
+
 type MenuKind = 'model' | 'mode' | 'plus' | 'slash';
 
 export interface ComposerCallbacks {
@@ -69,8 +85,10 @@ export interface ComposerCallbacks {
   onStop: () => void;
   onRequestCompletions: (kind: 'slash' | 'file', query: string) => void;
   onRemoveAttachment: (index: number) => void;
-  /** A file was chosen from the `@` autocomplete — attach it as a chip. */
-  onAddFileAttachment: (path: string) => void;
+  /** An image was pasted (or dropped) into the composer — pin it as a chip. */
+  onAddImageAttachment: (attachment: Attachment) => void;
+  /** Surface a problem with a pasted image (e.g. undecodable bytes). */
+  onAttachmentError: (message: string) => void;
   onSetModel: (model: ModelId) => void;
   onSetPermissionMode: (mode: PermissionMode) => void;
   /** Start a fresh conversation (used by the "Clear conversation" action). */
@@ -86,6 +104,8 @@ export interface ComposerCallbacks {
   onSetModelFallback: (enabled: boolean) => void;
   /** Rewind to the previous user turn. */
   onRewind: () => void;
+  /** `/` → Account & usage…: open the account dialog. */
+  onOpenAccount: () => void;
 }
 
 interface ActiveTrigger {
@@ -101,6 +121,7 @@ export class Composer {
   private readonly barDividerEl: HTMLElement;
   private readonly shellEl: HTMLElement;
   private readonly textarea: HTMLTextAreaElement;
+  private readonly highlightEl: HTMLElement;
   private readonly popup: HTMLElement;
   private readonly menu: HTMLElement;
   private readonly plusBtn: HTMLButtonElement;
@@ -108,6 +129,7 @@ export class Composer {
   private readonly modePill: HTMLButtonElement;
   private readonly usageEl: HTMLElement;
   private readonly sendBtn: HTMLButtonElement;
+  private readonly limitBannerEl: HTMLElement;
 
   private busy = false;
   private attachments: Attachment[] = [];
@@ -128,10 +150,16 @@ export class Composer {
   constructor(private readonly cb: ComposerCallbacks) {
     this.root = document.createElement('div');
     this.root.className = 'composer';
+    // The limit banner sits outside `.input-shell` so it never disturbs the
+    // menu positioning, which measures offsets against the shell.
     this.root.innerHTML = `
-      <div class="chips chips-external" role="list"></div>
+      <div class="limit-banner" hidden role="status"></div>
       <div class="input-shell">
-        <textarea class="input" rows="1" placeholder="Ask Yes Code…  (@ for files, / for commands)"></textarea>
+        <div class="chips chips-external" role="list"></div>
+        <div class="input-field">
+          <div class="input-highlight" aria-hidden="true"></div>
+          <textarea class="input" rows="1" placeholder="Ask Yes Code…  (@ for files, / for commands)"></textarea>
+        </div>
         <div class="completions" hidden></div>
         <div class="input-bar">
           <div class="input-bar-left">
@@ -156,6 +184,7 @@ export class Composer {
     this.barDividerEl = this.q('.bar-divider');
     this.shellEl = this.q('.input-shell');
     this.textarea = this.q('.input');
+    this.highlightEl = this.q('.input-highlight');
     this.popup = this.q('.completions');
     this.menu = this.q('.menu');
     this.plusBtn = this.q('.plus-btn');
@@ -163,6 +192,7 @@ export class Composer {
     this.modePill = this.q('.mode-pill');
     this.usageEl = this.q('.usage');
     this.sendBtn = this.q('.send-btn');
+    this.limitBannerEl = this.q('.limit-banner');
 
     this.wire();
     this.renderModePill();
@@ -182,6 +212,11 @@ export class Composer {
     });
 
     this.textarea.addEventListener('keydown', (e) => this.onKeydown(e));
+    this.textarea.addEventListener('paste', (e) => void this.onPaste(e));
+    // Keep the mention chips glued to their words once the field scrolls.
+    this.textarea.addEventListener('scroll', () => {
+      this.highlightEl.scrollTop = this.textarea.scrollTop;
+    });
 
     this.sendBtn.addEventListener('click', () => {
       if (this.busy) this.cb.onStop();
@@ -199,6 +234,10 @@ export class Composer {
     this.modePill.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleMenu('mode');
+    });
+
+    this.limitBannerEl.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('[data-action="account"]')) this.cb.onOpenAccount();
     });
 
     this.menu.addEventListener('click', (e) => this.onMenuClick(e));
@@ -256,7 +295,25 @@ export class Composer {
     this.renderModePill();
     this.renderChips();
     this.renderUsage(state.usage);
+    this.renderLimitBanner(state.rateLimitWarning);
     this.renderSendButton();
+  }
+
+  /**
+   * The plan-limit notice above the input. Clicking it opens the account dialog,
+   * which is where the user can actually see and act on the numbers.
+   */
+  private renderLimitBanner(warning: RateLimitWarning | undefined): void {
+    if (!warning) {
+      this.limitBannerEl.hidden = true;
+      this.limitBannerEl.innerHTML = '';
+      return;
+    }
+    this.limitBannerEl.hidden = false;
+    this.limitBannerEl.className = `limit-banner limit-${warning.severity}`;
+    this.limitBannerEl.innerHTML =
+      `<span class="limit-text">${escapeHtml(warning.message)}</span>` +
+      `<button type="button" class="limit-link" data-action="account">View usage</button>`;
   }
 
   setDraft(text: string): void {
@@ -574,7 +631,7 @@ export class Composer {
         break;
       case 'account':
         this.closeMenu();
-        this.cb.onSubmit('/status', []);
+        this.cb.onOpenAccount();
         break;
       case 'rewind':
         this.closeMenu();
@@ -619,6 +676,32 @@ export class Composer {
     this.detectTrigger();
   }
 
+  // -- paste ----------------------------------------------------------------
+
+  /**
+   * Attach images pasted straight from the clipboard — the screenshot flow,
+   * where nothing was ever saved to disk.
+   *
+   * A rich-text copy (from a browser, Word, Excel…) usually puts *both* a
+   * bitmap and plain text on the clipboard. Text wins there, so ordinary
+   * pasting is never hijacked; we only take over when there is no text.
+   */
+  private async onPaste(e: ClipboardEvent): Promise<void> {
+    const dt = e.clipboardData;
+    if (!dt || dt.getData('text/plain')) return;
+    const files = imagesFromDataTransfer(dt);
+    if (!files.length) return;
+    e.preventDefault();
+
+    for (const file of files) {
+      // `this.attachments` is refreshed by `update()` after each add, so labels
+      // stay unique across a multi-image paste.
+      const attachment = await toImageAttachment(file, this.attachments);
+      if (attachment) this.cb.onAddImageAttachment(attachment);
+      else this.cb.onAttachmentError(`Could not read the pasted image (${file.type || 'unknown type'}).`);
+    }
+  }
+
   // -- internals -----------------------------------------------------------
 
   private renderSendButton(): void {
@@ -642,12 +725,28 @@ export class Composer {
     this.barDividerEl.hidden = project.length === 0;
   }
 
+  /**
+   * External attachments render as cards inside the top of the input frame
+   * (thumbnail + name + pixel size); project attachments stay as compact pills
+   * on the button row. Both share the chip skeleton.
+   */
   private chipHtml(a: Attachment, i: number): string {
-    const cls = `chip chip-${a.kind}${a.ephemeral ? ' chip-ephemeral' : ''}`;
+    const cls =
+      `chip chip-${a.kind}` +
+      (a.ephemeral ? ' chip-ephemeral' : '') +
+      (a.external ? ' chip-card' : '');
     const hint = a.ephemeral ? '<span class="chip-hint" title="Active editor — auto-included">active</span>' : '';
+    const lead =
+      a.kind === 'image' && a.dataUri
+        ? `<img class="chip-thumb" src="${escapeHtml(a.dataUri)}" alt="" />`
+        : a.external
+          ? `<span class="chip-ico">${fileIcon()}</span>`
+          : '';
+    const dims =
+      a.width && a.height ? `<span class="chip-dims">${a.width}×${a.height}</span>` : '';
     return (
-      `<span class="${cls}" role="listitem" title="${escapeHtml(a.path ?? a.label)}">` +
-      `<span class="chip-label">${escapeHtml(a.label)}</span>${hint}` +
+      `<span class="${cls}" role="listitem" title="${escapeHtml(a.path ?? a.label)}">${lead}` +
+      `<span class="chip-label">${escapeHtml(a.label)}</span>${dims}${hint}` +
       `<button type="button" class="chip-x" data-remove-chip="${i}" title="Remove">${close()}</button></span>`
     );
   }
@@ -678,9 +777,52 @@ export class Composer {
     this.usageEl.title = tips.length ? tips.join('\n') : 'Session usage';
   }
 
+  /**
+   * Paint the `@path` mentions in the input as chips. A `<textarea>` can't hold
+   * styled spans, so an aria-hidden mirror sits directly behind it with the same
+   * text, same metrics and transparent glyphs — only its mention backgrounds
+   * show through, under the real (opaque) textarea text. Keep the two in sync:
+   * any change to `.input`'s font, padding or line-height must be mirrored on
+   * `.input-highlight`, or the chips will drift off their words.
+   */
+  private renderHighlight(): void {
+    const text = this.textarea.value;
+    let html = '';
+    let cursor = 0;
+    for (const m of text.matchAll(MENTION_RE)) {
+      // `m[0]` may lead with the whitespace the pattern required; the `@` sits
+      // right before the captured path. Trailing punctuation ends the sentence,
+      // not the path, so it stays outside the chip — as the host reads it.
+      const mention = m[1].replace(MENTION_TRAILING_PUNCT, '');
+      if (!mention) continue;
+      const at = (m.index ?? 0) + m[0].length - m[1].length - 1;
+      const end = at + mention.length + 1;
+      html += escapeHtml(text.slice(cursor, at));
+      html += `<span class="mention">${escapeHtml(text.slice(at, end))}</span>`;
+      cursor = end;
+    }
+    html += escapeHtml(text.slice(cursor));
+    // `pre-wrap` swallows a trailing newline; the textarea shows the blank line.
+    this.highlightEl.innerHTML = text.endsWith('\n') ? `${html} ` : html;
+    this.highlightEl.scrollTop = this.textarea.scrollTop;
+  }
+
+  /** Grow the field upward with its content, up to MAX_ROWS; scroll past that. */
   private autoGrow(): void {
+    this.renderHighlight();
+    const cs = getComputedStyle(this.textarea);
+    const lineHeight = parseFloat(cs.lineHeight) || 20;
+    const padding = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const max = Math.round(lineHeight * MAX_ROWS + padding);
+
+    // Collapse first so scrollHeight reports the content height, not the old box.
     this.textarea.style.height = 'auto';
-    this.textarea.style.height = `${Math.min(this.textarea.scrollHeight, 220)}px`;
+    const content = this.textarea.scrollHeight;
+    this.textarea.style.height = `${Math.min(content, max)}px`;
+    this.textarea.style.overflowY = content > max ? 'auto' : 'hidden';
+    // Once a scrollbar appears the textarea's text column narrows; match it so
+    // lines wrap at the same column in both layers.
+    this.highlightEl.style.width = `${this.textarea.clientWidth}px`;
   }
 
   private onKeydown(e: KeyboardEvent): void {
@@ -730,7 +872,9 @@ export class Composer {
 
   private submit(): void {
     const text = this.textarea.value.trim();
-    if (!text) return;
+    // An image on its own is a complete prompt ("what's wrong with this?"), but
+    // the always-present editor-context chip must not make an empty box sendable.
+    if (!text && !this.attachments.some((a) => a.kind === 'image')) return;
     this.cb.onSubmit(text, this.attachments.slice());
     this.textarea.value = '';
     this.autoGrow();
@@ -770,13 +914,16 @@ export class Composer {
     }
     this.popup.hidden = false;
     this.popup.innerHTML = this.completions
-      .map(
-        (c, i) =>
+      .map((c, i) => {
+        const icon = c.kind === 'directory' ? folderIcon() : c.kind === 'file' ? fileIcon() : '';
+        return (
           `<div class="completion${i === this.activeIndex ? ' active' : ''}" data-completion="${i}">` +
+          (icon ? `<span class="completion-ico">${icon}</span>` : '') +
           `<span class="completion-label">${escapeHtml(c.label)}</span>` +
           (c.detail ? `<span class="completion-detail">${escapeHtml(c.detail)}</span>` : '') +
-          `</div>`,
-      )
+          `</div>`
+        );
+      })
       .join('');
     const active = this.popup.querySelector('.completion.active');
     active?.scrollIntoView({ block: 'nearest' });
@@ -788,6 +935,15 @@ export class Composer {
     this.trigger = null;
   }
 
+  /**
+   * Replace the `@…`/`/…` the user was typing with the chosen item's insert
+   * text. An `@`-mention stays *inline in the prompt* (the host reads the file
+   * and splices its contents in on submit) rather than becoming a chip — that
+   * is what Claude Code does; it is painted as a chip by `renderHighlight`.
+   *
+   * Choosing a folder is not a completion but a navigation step: the query
+   * becomes `dir/` and the popup stays open, now listing what's inside.
+   */
   private chooseCompletion(index: number): void {
     const item = this.completions[index];
     if (!item || !this.trigger) return;
@@ -796,19 +952,11 @@ export class Composer {
     const before = value.slice(0, this.trigger.start);
     const after = value.slice(caret);
 
-    if (this.trigger.kind === 'file') {
-      // Attach the file as a chip (its content is expanded into the prompt on
-      // submit) and drop the `@query` text, mirroring Claude Code's file pills.
-      this.cb.onAddFileAttachment(item.label);
-      this.textarea.value = before + after;
-      this.textarea.setSelectionRange(before.length, before.length);
-    } else {
-      const insert = item.insert.endsWith(' ') ? item.insert : item.insert + ' ';
-      this.textarea.value = before + insert + after;
-      const pos = before.length + insert.length;
-      this.textarea.setSelectionRange(pos, pos);
-    }
-    this.closePopup();
+    this.textarea.value = before + item.insert + after;
+    const pos = before.length + item.insert.length;
+    this.textarea.setSelectionRange(pos, pos);
+    if (item.kind === 'directory') this.detectTrigger();
+    else this.closePopup();
     this.autoGrow();
     this.focus();
     this.cb.onDraftChange(this.textarea.value);

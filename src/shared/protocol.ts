@@ -24,6 +24,8 @@ export interface AuthInfo {
   email?: string;
   /** Subscription tier, e.g. "pro" | "max", when known. */
   plan?: string;
+  /** Organization name, when known (subscription login). */
+  org?: string;
 }
 
 /**
@@ -128,12 +130,17 @@ export interface Attachment {
   range?: { startLine: number; endLine: number };
   /** For image: data URI. */
   dataUri?: string;
+  /** For image: intrinsic pixel size of the source, shown next to the label. */
+  width?: number;
+  height?: number;
   /** UI hint: this chip auto-tracks the active editor rather than being pinned. */
   ephemeral?: boolean;
   /**
    * UI hint: this attachment came from *outside* the project (uploaded from the
    * user's computer). External attachments render *above* the input; project
-   * files (`@`-mentions, editor context) render *below* it, mirroring Claude Code.
+   * files (editor context, "Add to chat") render *below* it, mirroring Claude
+   * Code. `@`-mentions are not attachments at all — they stay inline in the
+   * prompt text and the host expands them on submit.
    */
   external?: boolean;
 }
@@ -150,6 +157,84 @@ export interface UsageInfo {
   contextWindow?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Account & usage (the "Account & usage…" dialog and the composer warning)
+// ---------------------------------------------------------------------------
+
+/** Where the user manages their plan/usage. */
+export const MANAGE_USAGE_URL = 'https://claude.ai/settings/usage';
+
+/**
+ * One plan rate-limit window, e.g. the 5-hour session budget or the rolling
+ * 7-day budget. `utilization` is a percentage, 0-100.
+ */
+export interface UsageWindow {
+  /** Stable identity: `five_hour`, `seven_day`, `seven_day_opus`, `model:Fable`, … */
+  key: string;
+  /** Display name, e.g. "Session (5hr)", "Weekly (7 day)", "Weekly Fable". */
+  label: string;
+  utilization: number;
+  /** ISO 8601 timestamp when the window resets, when the server supplies one. */
+  resetsAt?: string;
+}
+
+/**
+ * A behavioral characteristic of local usage ("43% of your usage was at >150k
+ * context"), with Claude Code's advice for it. Categories overlap — these are
+ * not a partition, so the percentages do not sum to 100.
+ */
+export interface UsageBehavior {
+  key: string;
+  headline: string;
+  body: string;
+}
+
+/** A named contributor (skill / agent / plugin / MCP server) and its share. */
+export interface UsageContributor {
+  name: string;
+  pct: number;
+}
+
+/** Locally-derived usage attribution for one time window. */
+export interface UsageBreakdown {
+  requestCount: number;
+  sessionCount: number;
+  behaviors: UsageBehavior[];
+  skills: UsageContributor[];
+  agents: UsageContributor[];
+  plugins: UsageContributor[];
+  mcpServers: UsageContributor[];
+}
+
+/** Everything the "Account & usage" dialog renders. */
+export interface AccountUsage {
+  auth: AuthInfo;
+  /**
+   * False for API-key / Bedrock / Vertex sessions, where plan rate limits do
+   * not apply. `windows` is empty and the dialog says so.
+   */
+  limitsAvailable: boolean;
+  windows: UsageWindow[];
+  /** Cost accumulated by the current session, when the runtime reports it. */
+  sessionCostUsd?: number;
+  /**
+   * "What's contributing to your limits usage?" — scanned from local
+   * transcripts on this machine. Absent for non-subscription sessions.
+   */
+  breakdown?: { day: UsageBreakdown; week: UsageBreakdown };
+}
+
+/**
+ * The banner shown above the composer as a plan limit gets close. Mirrors
+ * Claude Code: `warning` while requests still succeed, `error` once the limit
+ * rejects them.
+ */
+export interface RateLimitWarning {
+  severity: 'warning' | 'error';
+  /** e.g. "You've used 92% of your session limit · resets 3pm". */
+  message: string;
+}
+
 /** Editor context pushed to the webview so it can render chips/@-mentions. */
 export interface EditorContext {
   activeFile?: string;
@@ -157,6 +242,29 @@ export interface EditorContext {
   openFiles: string[];
   workspaceName?: string;
 }
+
+/** One selectable answer to an `AskUserQuestion` question. */
+export interface QuestionOption {
+  label: string;
+  description: string;
+  /** Monospace preview (mockup, snippet, diagram) shown when this option is focused. */
+  preview?: string;
+}
+
+/** A single question posed by the `AskUserQuestion` tool. */
+export interface QuestionSpec {
+  question: string;
+  /** Very short label rendered as a chip above the question. */
+  header: string;
+  multiSelect: boolean;
+  options: QuestionOption[];
+}
+
+/**
+ * The free-text choice the UI appends to every question. `AskUserQuestion`
+ * never includes it in `options` — the picker is expected to supply it.
+ */
+export const OTHER_OPTION_LABEL = 'Other';
 
 /** A pending permission request awaiting user decision. */
 export interface PermissionRequest {
@@ -169,10 +277,25 @@ export interface PermissionRequest {
   diff?: DiffView;
   /** Suggestions the UI can offer as "always allow" scopes. */
   canRemember?: boolean;
+  /**
+   * Present only for `AskUserQuestion`. When set, the UI renders a choice card
+   * instead of an allow/deny prompt, and answers it via
+   * `PermissionDecision.answers` rather than a bare `allow`.
+   */
+  questions?: QuestionSpec[];
 }
 
 export type PermissionDecision =
-  | { behavior: 'allow'; remember?: boolean }
+  | {
+      behavior: 'allow';
+      remember?: boolean;
+      /**
+       * `AskUserQuestion` only: the user's selection per question, keyed by the
+       * question text. Multi-select answers are comma-joined. Fed back to the
+       * tool as `updatedInput.answers`.
+       */
+      answers?: Record<string, string>;
+    }
   | { behavior: 'deny'; message?: string };
 
 /** A saved conversation summary for the history view. */
@@ -231,6 +354,8 @@ export type HostToWebview =
     }
   /** Update session usage totals. */
   | { type: 'usage'; usage: UsageInfo }
+  /** The short, model-generated title for the current conversation. */
+  | { type: 'sessionTitle'; title: string }
   /** Provide the history list. */
   | { type: 'history'; entries: HistoryEntry[] }
   /** Provide slash-command / @-file completion candidates. */
@@ -246,13 +371,28 @@ export type HostToWebview =
   /** Sign-in state changed. */
   | { type: 'authState'; signedIn: boolean; auth?: AuthInfo }
   /** Drive the in-panel sign-in UI. */
-  | { type: 'authPrompt'; stage: AuthStage; method?: AuthMethod; url?: string; message?: string };
+  | { type: 'authPrompt'; stage: AuthStage; method?: AuthMethod; url?: string; message?: string }
+  /**
+   * Answer to `requestAccountUsage`. Exactly one of `usage` / `error` is set;
+   * the dialog is already open and swaps its spinner for whichever arrives.
+   */
+  | { type: 'accountUsage'; usage?: AccountUsage; error?: string }
+  /** Show (or, with no `warning`, clear) the plan-limit banner above the composer. */
+  | { type: 'rateLimitWarning'; warning?: RateLimitWarning }
+  /** Open the "Account & usage" dialog (the `/usage` command). */
+  | { type: 'openAccountDialog' };
 
 export interface CompletionItem {
   label: string;
-  /** Text to insert. */
+  /** Text to insert, verbatim (including any trailing space the item wants). */
   insert: string;
   detail?: string;
+  /**
+   * What the item stands for, so the popup can pick an icon. Picking a
+   * `directory` narrows the search into that folder instead of closing the
+   * popup.
+   */
+  kind?: 'file' | 'directory' | 'command';
 }
 
 export interface WebviewState {
@@ -271,6 +411,13 @@ export interface WebviewState {
   signedIn: boolean;
   auth?: AuthInfo;
   slashCommands: SlashCommand[];
+  /**
+   * Short generated title for the conversation. Absent until the first turn
+   * finishes; the UI falls back to the first prompt's text meanwhile.
+   */
+  sessionTitle?: string;
+  /** Plan-limit banner to show above the composer, when one applies. */
+  rateLimitWarning?: RateLimitWarning;
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +457,8 @@ export type WebviewToHost =
   | { type: 'requestHistory' }
   /** Load a session from history. */
   | { type: 'loadSession'; sessionId: string }
+  /** Permanently delete a session's transcript from disk. */
+  | { type: 'deleteSession'; sessionId: string }
   /** Ask host for completions as the user types. */
   | { type: 'requestCompletions'; kind: 'slash' | 'file'; query: string }
   /** Remove an attachment chip. */
@@ -332,5 +481,7 @@ export type WebviewToHost =
   | { type: 'openUrl'; url: string }
   /** Sign out of the current account. */
   | { type: 'signOut' }
+  /** Open the "Account & usage" dialog: fetch account + plan-limit data. */
+  | { type: 'requestAccountUsage' }
   /** Copy text to clipboard via host (webview clipboard is restricted). */
   | { type: 'copy'; text: string };

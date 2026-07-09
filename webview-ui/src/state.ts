@@ -14,6 +14,7 @@ import type {
   ModelId,
   PermissionMode,
   PermissionRequest,
+  RateLimitWarning,
   SlashCommand,
   ToolUseView,
   UsageInfo,
@@ -30,6 +31,8 @@ export interface AppState {
   busy: boolean;
   editorContext: EditorContext;
   usage?: UsageInfo;
+  /** Plan-limit banner shown above the composer, when a window is nearly spent. */
+  rateLimitWarning?: RateLimitWarning;
   signedIn: boolean;
   /** In-panel sign-in flow stage (only meaningful when signed out). */
   authStage: AuthStage;
@@ -37,11 +40,13 @@ export interface AppState {
   authUrl?: string;
   authMessage?: string;
   slashCommands: SlashCommand[];
+  /** Short generated title for the conversation; absent until the first turn ends. */
+  sessionTitle?: string;
   /** Outstanding permission prompts, newest last. */
   pendingPermissions: PermissionRequest[];
   /** Combined list shown as chips: the ephemeral editor-context chip + pinned. */
   attachments: Attachment[];
-  /** Explicitly added, sticky attachments (from @-mentions / add-to-chat commands). */
+  /** Explicitly added, sticky attachments (add-to-chat commands, pasted images, uploads). */
   pinned: Attachment[];
   /** Labels the user explicitly removed, so refreshed editor context won't re-add them. */
   removedAttachmentLabels: Set<string>;
@@ -81,8 +86,10 @@ export function applyInit(state: AppState, ws: WebviewState): void {
   state.busy = Boolean(ws.busy);
   state.editorContext = ws.editorContext ?? { openFiles: [] };
   state.usage = ws.usage;
+  state.rateLimitWarning = ws.rateLimitWarning;
   state.signedIn = ws.signedIn !== false;
   state.slashCommands = Array.isArray(ws.slashCommands) ? ws.slashCommands : [];
+  state.sessionTitle = ws.sessionTitle;
   state.pendingPermissions = [];
   state.initialized = true;
   recomputeContextAttachments(state);

@@ -12,23 +12,7 @@ const stroke = (d: string): string =>
   `<path d="${d}" stroke="currentColor" stroke-width="1.8" ` +
   `stroke-linecap="round" stroke-linejoin="round"/>`;
 
-/** The one colour the theme does not get to override: it identifies the product. */
-const BRAND = '#D97757';
-
-const brandStroke = (d: string, width: number): string =>
-  `<path d="${d}" stroke="${BRAND}" stroke-width="${width}" ` +
-  `stroke-linecap="round" stroke-linejoin="round"/>`;
-
-/** Brand mark: code brackets around a checkmark. Kept in step with media/icon.svg. */
-export const logo = (size = 28): string =>
-  svg(
-    brandStroke('M9 6L4 12L9 18', 1.9) +
-      brandStroke('M15 6L20 12L15 18', 1.9) +
-      brandStroke('M9 11.8L11 13.8L14.5 9.8', 2),
-    size,
-  );
-
-export const send = (): string => svg(stroke('M4 12h15M13 6l6 6-6 6'));
+export const send = (): string => svg(stroke('M12 20V5M6 11l6-6 6 6'), 15);
 
 export const stop = (): string =>
   svg('<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>');
@@ -100,6 +84,19 @@ export const file = (): string =>
     14,
   );
 
+/**
+ * Solid, unlike the outlined `file` above — deliberately. A folder's only
+ * distinguishing feature is its tab, which is ~1.5px tall at this size and
+ * reads as a plain rectangle (i.e. as a file). The filled silhouette is what
+ * makes the two glyphs tell apart at a glance.
+ */
+export const folder = (): string =>
+  svg(
+    '<path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h3.2a2 2 0 0 1 1.6.8l1.2 1.7H18.5A2.5 2.5 0 0 1 21 9v8.5' +
+      'A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z" fill="currentColor"/>',
+    14,
+  );
+
 export const close = (): string => svg(stroke('M6 6l12 12M18 6L6 18'), 12);
 
 export const clock = (size = 14): string =>
@@ -138,6 +135,9 @@ export const globe = (): string =>
       '<path d="M3.5 12h17M12 3.5c2.6 2.3 2.6 14.7 0 17M12 3.5c-2.6 2.3-2.6 14.7 0 17" stroke="currentColor" stroke-width="1.6"/>',
     14,
   );
+
+export const trash = (size = 14): string =>
+  svg(stroke('M4 7h16M10 7V5h4v2M6 7l1 12h10l1-12M10 11v5M14 11v5'), size);
 
 export const code = (): string => svg(stroke('M9 8l-4 4 4 4M15 8l4 4-4 4'), 14);
 

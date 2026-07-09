@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from './util/logger';
 import { clearBinaryCache } from './agent/cli';
+import { showCoexistenceTipOnce } from './agent/coexist';
 import { SessionManager } from './agent/sessionManager';
 import { ChatViewProvider } from './panel/chatViewProvider';
 import { MODELS } from './shared/protocol';
@@ -105,6 +106,11 @@ export function activate(context: vscode.ExtensionContext): void {
       .then((choice) => {
         if (choice === 'Move to Side Drawer') void moveChatToDrawer();
       });
+  } else {
+    // One-time note that Anthropic's extension shares our sign-in, config and
+    // usage. Deferred past the very first activation so it never stacks on top
+    // of the placement tip.
+    void showCoexistenceTipOnce(context);
   }
 }
 
