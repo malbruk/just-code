@@ -1,10 +1,11 @@
 # Yes Code
 
+**Yes to code, no to everything else.**
+
 **Yes Code** is a VS Code extension for agentic software development, built on
 Anthropic's official **[Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk)**.
-It provides a chat panel that can read, search, edit, and run code in your workspace,
-with a **scoped-behaviour layer** that keeps the assistant on software-engineering
-topics and a **permission layer** that gates every action it takes on your machine.
+It provides a chat panel that can read, search, edit, and run code in your workspace —
+and a scope policy that keeps the assistant on software engineering, and nothing else.
 
 > **Independent project.** Yes Code is not affiliated with, sponsored by, or
 > endorsed by Anthropic PBC. "Anthropic", "Claude", and "Claude Code" are trademarks
@@ -14,30 +15,31 @@ topics and a **permission layer** that gates every action it takes on your machi
 ## Why Yes Code
 
 The Claude Agent SDK exposes the same agent loop and toolset that powers Anthropic's
-own coding tools. Yes Code wraps that loop in a VS Code surface and adds one thing
-the raw SDK does not provide: **an explicit, inspectable control layer**.
+own coding tools: a capable general-purpose assistant that happens to be pointed at your
+repository. Yes Code wraps that loop in a VS Code surface and narrows what it is for.
 
-That layer has two independent halves:
+A scope policy is appended to the SDK's built-in `claude_code` system prompt on every
+request, in every workspace. It confines the assistant to code, debugging, architecture,
+and directly-related technical subjects. Personal, social, and sensitive human topics are
+out of scope — and so is routing them through code. A request for a function, variable
+name, comment, or string literal whose *content* is out of scope is declined even when
+its wrapper is perfectly technical. Anything off-topic gets one answer, and it is always
+the same one.
 
-**1. Scope enforcement.** A system-prompt policy is appended to the SDK's built-in
-`claude_code` preset on every request, in every workspace, constraining the assistant
-to code, debugging, architecture, and directly-related technical subjects. Requests
-outside that scope — including attempts to smuggle out-of-scope content through code,
-comments, or string literals — are declined. The policy lives in a single readable
-file, [`src/agent/system-prompt.md`](src/agent/system-prompt.md), so it can be audited
-and adapted rather than trusted blindly.
+The policy is not a hidden filter. It is roughly ten lines of plain English in a single
+file, [`src/agent/system-prompt.md`](src/agent/system-prompt.md), so you can read it,
+tighten it, or adapt it to your organisation instead of trusting it blindly. It is a
+strong instruction to the model rather than a hard technical guarantee, and it is written
+to be audited on that basis.
 
-**2. Action gating.** Every tool invocation passes through a `canUseTool` bridge before
-it touches your filesystem or shell. You approve, deny, or allow-always each one; file
-edits are shown as inline diffs you can accept or reject individually, reverting to a
-pre-edit snapshot on rejection.
-
-The result is an agent whose purpose and permissions are both narrowed on purpose —
-suited to organisations that want agentic coding assistance without a general-purpose
-chatbot inside the editor.
+The result is an agent that is a development tool and nothing else — suited to teams and
+organisations that want agentic coding assistance without a general-purpose chatbot
+inside the editor.
 
 ## Features
 
+- **Scoped to development** — an auditable policy file keeps the assistant on code and
+  technical subjects, and declines everything else.
 - **Agentic chat panel** in the activity bar (and openable in an editor tab), with the
   SDK's full toolset (Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Web, TodoWrite,
   Task/subagents, …).
@@ -167,7 +169,7 @@ src/
   extension.ts            activation, command registration, context wiring
   panel/chatViewProvider  WebviewViewProvider + editor-tab panel; HTML/CSP/bridge
   agent/                  Agent SDK integration (streaming-input query loop)
-  agent/system-prompt.md  the scope-enforcement policy  ← the control layer
+  agent/system-prompt.md  the scope policy  ← what makes this Yes Code
   tools/                  canUseTool permission bridge, diff compute & review
   context/                editor context tracking, @-file / slash completions
   history/                session list & resume via the SDK
