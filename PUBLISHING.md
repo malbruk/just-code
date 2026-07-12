@@ -2,8 +2,8 @@
 
 The publisher (`MaBrukDev`) and the Entra ID credential (Option A) are set up and reusable.
 The rest of sections 1–3 is **not** carried over from the old name: renaming the extension
-from Yes Code to Just Code changed `name` from `yescode` to `justcode`, so
-`MaBrukDev.justcode` is a **new listing** whose first publish claims that name permanently,
+from Yes Code to Just Code changed `name` from `yescode` to `just-code`, so
+`MaBrukDev.just-code` is a **new listing** whose first publish claims that name permanently,
 and `github.com/malbruk/just-code` must exist before the marketplace page can link to it.
 Once both are true, a release is [section 5](#5-cutting-and-publishing-a-new-version).
 
@@ -22,6 +22,13 @@ Once both are true, a release is [section 5](#5-cutting-and-publishing-a-new-ver
 
 The marketplace identifies extensions as `<publisher>.<name>`. `publisher` is not a free
 string — it must be an ID you own.
+
+> **`name` is unique across the whole marketplace, not just within your publisher.** The
+> first attempt at this rename used `name: "justcode"` and was rejected at upload with
+> *"The extension 'justcode' already exists in the Marketplace"* — `psxcode.justcode`, an
+> unrelated colour theme, holds it. Hence `just-code`. `displayName` carries no such
+> constraint; several extensions are called "JustCode". Check a candidate before you plan
+> around it: `npx @vscode/vsce search <name>`.
 
 1. Sign in to <https://marketplace.visualstudio.com/manage> with a Microsoft account.
    This creates an Azure DevOps organisation behind the scenes; you do not have to use it.
@@ -84,25 +91,18 @@ your `az login` session (or a managed identity in CI).
 ## 3. Create the GitHub repository
 
 The marketplace page links to `repository`, `bugs`, and `homepage`, so they must resolve.
-Preflight blocks on a placeholder URL, but it cannot tell a live URL from a dead one — and
-`package.json` now points at `github.com/malbruk/just-code`, which is the **old repository
-under its new name**. Rename it on GitHub (Settings → General → Repository name), then
-repoint the remote:
+Preflight blocks on a placeholder URL, but it cannot tell a live URL from a dead one.
+
+Done: the repository was renamed on GitHub from `yes-code` to `just-code`, and
+`package.json` points at it. If a clone still has the old remote, GitHub redirects it, so
+pushes keep working — but repoint it anyway:
 
 ```bash
 git remote set-url origin git@github.com:malbruk/just-code.git
 ```
 
-GitHub redirects the old path, so clones and pushes keep working either way; the rename is
-about the marketplace links resolving to something that is not a redirect.
-
-Then update `package.json`:
-
-```json
-"repository": { "type": "git", "url": "https://github.com/<owner>/<repo>.git" },
-"bugs":       { "url": "https://github.com/<owner>/<repo>/issues" },
-"homepage":   "https://github.com/<owner>/<repo>#readme"
-```
+Preflight warns (does not fail) when the git remote and `package.json` `repository`
+disagree, which is exactly what an un-repointed clone looks like.
 
 ## 4. Read this before you publish
 
@@ -210,7 +210,7 @@ Success looks like `DONE  Published <publisher>.<name> v<version>.`
 ### Step 8 — verify
 
 ```bash
-npx @vscode/vsce show MaBrukDev.justcode
+npx @vscode/vsce show MaBrukDev.just-code
 ```
 
 **Expect this to still report the previous version for a few minutes.** `vsce publish`

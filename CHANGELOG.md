@@ -3,7 +3,7 @@
 ## 1.1.0
 
 - **The extension is now called Just Code.** The rename goes all the way down: the marketplace
-  id is `MaBrukDev.justcode`, and every command, setting, and context key moved from
+  id is `MaBrukDev.just-code`, and every command, setting, and context key moved from
   `yes-code.*` to `just-code.*`. This is a new listing — it does not update an existing
   Yes Code install, and settings and keybindings written against `yes-code.*` do not carry
   over. Re-set them under the new names.

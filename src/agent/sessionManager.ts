@@ -520,7 +520,7 @@ export class SessionManager implements vscode.Disposable {
         return 'handled';
 
       case '/config':
-        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:MaBrukDev.justcode');
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:MaBrukDev.just-code');
         return 'handled';
 
       case '/cost':
