@@ -1,18 +1,18 @@
 {
-  "name": "yescode",
-  "displayName": "Yes Code",
-  "description": "Yes to code, no to everything else. A community VS Code chat extension on the Claude Agent SDK",
-  "version": "1.0.3",
+  "name": "justcode",
+  "displayName": "Just Code",
+  "description": "Just code, nothing else. A community VS Code chat extension on the Claude Agent SDK",
+  "version": "1.1.0",
   "publisher": "MaBrukDev",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/malbruk/yes-code.git"
+    "url": "https://github.com/malbruk/just-code.git"
   },
   "bugs": {
-    "url": "https://github.com/malbruk/yes-code/issues"
+    "url": "https://github.com/malbruk/just-code/issues"
   },
-  "homepage": "https://github.com/malbruk/yes-code#readme",
+  "homepage": "https://github.com/malbruk/just-code#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -41,224 +41,224 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": false,
-      "description": "Yes Code runs an agent that edits files and executes shell commands in this workspace, and loads MCP servers declared in the workspace's .mcp.json — which start processes defined by the repository. Only enable it in workspaces you trust."
+      "description": "Just Code runs an agent that edits files and executes shell commands in this workspace, and loads MCP servers declared in the workspace's .mcp.json — which start processes defined by the repository. Only enable it in workspaces you trust."
     }
   },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "yes-code",
-          "title": "Yes Code",
+          "id": "just-code",
+          "title": "Just Code",
           "icon": "media/activity-icon.svg"
         }
       ]
     },
     "views": {
-      "yes-code": [
+      "just-code": [
         {
           "type": "webview",
-          "id": "yes-code.chat",
-          "name": "Yes Code",
+          "id": "just-code.chat",
+          "name": "Just Code",
           "icon": "media/activity-icon.svg",
-          "contextualTitle": "Yes Code"
+          "contextualTitle": "Just Code"
         }
       ]
     },
     "commands": [
       {
-        "command": "yes-code.openChat",
-        "title": "Open Yes Code",
-        "category": "Yes Code",
+        "command": "just-code.openChat",
+        "title": "Open Just Code",
+        "category": "Just Code",
         "icon": "$(comment-discussion)"
       },
       {
-        "command": "yes-code.newChat",
+        "command": "just-code.newChat",
         "title": "New Chat",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(add)"
       },
       {
-        "command": "yes-code.newChatInEditor",
+        "command": "just-code.newChatInEditor",
         "title": "New Chat in Editor",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(split-horizontal)"
       },
       {
-        "command": "yes-code.stop",
+        "command": "just-code.stop",
         "title": "Stop",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(stop-circle)"
       },
       {
-        "command": "yes-code.history",
+        "command": "just-code.history",
         "title": "Show Chat History",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(history)"
       },
       {
-        "command": "yes-code.addSelectionToChat",
-        "title": "Add Selection to Yes Code",
-        "category": "Yes Code",
+        "command": "just-code.addSelectionToChat",
+        "title": "Add Selection to Just Code",
+        "category": "Just Code",
         "icon": "$(add)"
       },
       {
-        "command": "yes-code.addFileToChat",
-        "title": "Add File to Yes Code",
-        "category": "Yes Code"
+        "command": "just-code.addFileToChat",
+        "title": "Add File to Just Code",
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.explainSelection",
+        "command": "just-code.explainSelection",
         "title": "Explain Selection",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.fixSelection",
+        "command": "just-code.fixSelection",
         "title": "Fix Selection with Claude",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.acceptAllEdits",
+        "command": "just-code.acceptAllEdits",
         "title": "Accept All Edits",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(check-all)"
       },
       {
-        "command": "yes-code.rejectAllEdits",
+        "command": "just-code.rejectAllEdits",
         "title": "Reject All Edits",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(discard)"
       },
       {
-        "command": "yes-code.acceptEdit",
+        "command": "just-code.acceptEdit",
         "title": "Accept Edit",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(check)"
       },
       {
-        "command": "yes-code.rejectEdit",
+        "command": "just-code.rejectEdit",
         "title": "Reject Edit",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(discard)"
       },
       {
-        "command": "yes-code.selectModel",
+        "command": "just-code.selectModel",
         "title": "Select Model",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.setPermissionMode",
+        "command": "just-code.setPermissionMode",
         "title": "Set Permission Mode",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.signIn",
+        "command": "just-code.signIn",
         "title": "Sign In / Set API Key",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.signOut",
+        "command": "just-code.signOut",
         "title": "Sign Out",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.rewind",
+        "command": "just-code.rewind",
         "title": "Rewind to Checkpoint",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(discard)"
       },
       {
-        "command": "yes-code.focusInput",
+        "command": "just-code.focusInput",
         "title": "Focus Chat Input",
-        "category": "Yes Code"
+        "category": "Just Code"
       },
       {
-        "command": "yes-code.moveView",
+        "command": "just-code.moveView",
         "title": "Move Chat to Side Drawer…",
-        "category": "Yes Code",
+        "category": "Just Code",
         "icon": "$(layout-sidebar-right)"
       }
     ],
     "keybindings": [
       {
-        "command": "yes-code.openChat",
+        "command": "just-code.openChat",
         "key": "ctrl+escape",
         "mac": "cmd+escape"
       },
       {
-        "command": "yes-code.addSelectionToChat",
+        "command": "just-code.addSelectionToChat",
         "key": "ctrl+alt+k",
         "mac": "cmd+alt+k",
         "when": "editorHasSelection"
       },
       {
-        "command": "yes-code.acceptAllEdits",
+        "command": "just-code.acceptAllEdits",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
-        "when": "yes-code.hasPendingEdits"
+        "when": "just-code.hasPendingEdits"
       },
       {
-        "command": "yes-code.newChat",
+        "command": "just-code.newChat",
         "key": "ctrl+alt+n",
         "mac": "cmd+alt+n",
-        "when": "focusedView == yes-code.chat"
+        "when": "focusedView == just-code.chat"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "yes-code.newChatInEditor",
-          "when": "view == yes-code.chat",
+          "command": "just-code.newChatInEditor",
+          "when": "view == just-code.chat",
           "group": "navigation@1"
         },
         {
-          "command": "yes-code.moveView",
-          "when": "view == yes-code.chat",
+          "command": "just-code.moveView",
+          "when": "view == just-code.chat",
           "group": "1_layout@1"
         }
       ],
       "editor/context": [
         {
-          "command": "yes-code.addSelectionToChat",
+          "command": "just-code.addSelectionToChat",
           "when": "editorHasSelection",
-          "group": "yes-code@1"
+          "group": "just-code@1"
         },
         {
-          "command": "yes-code.explainSelection",
+          "command": "just-code.explainSelection",
           "when": "editorHasSelection",
-          "group": "yes-code@2"
+          "group": "just-code@2"
         },
         {
-          "command": "yes-code.fixSelection",
+          "command": "just-code.fixSelection",
           "when": "editorHasSelection",
-          "group": "yes-code@3"
+          "group": "just-code@3"
         }
       ],
       "explorer/context": [
         {
-          "command": "yes-code.addFileToChat",
-          "group": "yes-code@1"
+          "command": "just-code.addFileToChat",
+          "group": "just-code@1"
         }
       ],
       "commandPalette": [
         {
-          "command": "yes-code.acceptEdit",
+          "command": "just-code.acceptEdit",
           "when": "false"
         },
         {
-          "command": "yes-code.rejectEdit",
+          "command": "just-code.rejectEdit",
           "when": "false"
         },
         {
-          "command": "yes-code.focusInput",
+          "command": "just-code.focusInput",
           "when": "false"
         }
       ]
     },
     "configuration": {
-      "title": "Yes Code",
+      "title": "Just Code",
       "properties": {
-        "yes-code.model": {
+        "just-code.model": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -275,7 +275,7 @@
           ],
           "description": "The Claude model to use for the agent."
         },
-        "yes-code.permissionMode": {
+        "just-code.permissionMode": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -292,7 +292,7 @@
           ],
           "description": "Default permission mode for tool usage."
         },
-        "yes-code.authMethod": {
+        "just-code.authMethod": {
           "type": "string",
           "default": "subscription",
           "enum": [
@@ -306,34 +306,34 @@
           "description": "How to authenticate with Anthropic. 'subscription' signs in with your claude.ai account; 'apiKey' uses a Console API key.",
           "scope": "application"
         },
-        "yes-code.apiKey": {
+        "just-code.apiKey": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Your Anthropic API key (used only when `#yes-code.authMethod#` is `apiKey`). Prefer the **Sign In** command, which stores the key in secret storage. Leave empty to use the `ANTHROPIC_API_KEY` environment variable.",
+          "markdownDescription": "Your Anthropic API key (used only when `#just-code.authMethod#` is `apiKey`). Prefer the **Sign In** command, which stores the key in secret storage. Leave empty to use the `ANTHROPIC_API_KEY` environment variable.",
           "scope": "application"
         },
-        "yes-code.claudeExecutablePath": {
+        "just-code.claudeExecutablePath": {
           "type": "string",
           "default": "",
           "markdownDescription": "Full path to the `claude` executable. Leave empty to auto-detect (checks `PATH`, npm global installs, and the native installer). Must point at the real binary, not an npm launcher script — though a launcher script will be followed to its target. Supports `~` and `${env:VAR}`.",
           "scope": "application"
         },
-        "yes-code.maxTurns": {
+        "just-code.maxTurns": {
           "type": "number",
           "default": 100,
           "description": "Maximum number of agent turns per request."
         },
-        "yes-code.thinkingBudget": {
+        "just-code.thinkingBudget": {
           "type": "number",
           "default": 0,
           "description": "Max thinking tokens (0 = model default). Higher enables extended thinking."
         },
-        "yes-code.extendedThinking": {
+        "just-code.extendedThinking": {
           "type": "boolean",
           "default": true,
           "description": "Enable extended thinking. Toggled live from the composer's Actions menu."
         },
-        "yes-code.effort": {
+        "just-code.effort": {
           "type": "string",
           "default": "default",
           "enum": [
@@ -354,12 +354,12 @@
           ],
           "markdownDescription": "Reasoning effort level (SDK `effort`). Changing it applies to the next chat/turn."
         },
-        "yes-code.autoModelFallback": {
+        "just-code.autoModelFallback": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Switch to a fallback model when the primary is flagged or fails (SDK `fallbackModel`)."
         },
-        "yes-code.additionalDirectories": {
+        "just-code.additionalDirectories": {
           "type": "array",
           "items": {
             "type": "string"
@@ -367,7 +367,7 @@
           "default": [],
           "description": "Additional directories the agent is allowed to access, beyond the workspace."
         },
-        "yes-code.loadProjectSettings": {
+        "just-code.loadProjectSettings": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Load filesystem settings — user (`~/.claude`), project (`.claude`), and local (`.claude/settings.local.json`). This is what enables `CLAUDE.md` files and **MCP servers**. Turning it off runs the agent in isolation with no MCP."
@@ -382,7 +382,7 @@
     "package": "node esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "vsix": "vsce package -o yes-code.vsix",
+    "vsix": "vsce package -o just-code.vsix",
     "publish:check": "node scripts/preflight.js",
     "publish:marketplace": "npm run publish:check && vsce publish --azure-credential",
     "publish:marketplace:pat": "npm run publish:check && vsce publish"

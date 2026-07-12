@@ -17,7 +17,7 @@ const TIMEOUT_MS = 15_000;
  * inside the workspace would therefore add a junk conversation to the user's
  * history list on every new chat, so it runs against a throwaway directory.
  */
-const TITLER_CWD = path.join(os.tmpdir(), 'yes-code-titler');
+const TITLER_CWD = path.join(os.tmpdir(), 'just-code-titler');
 
 export interface TitlerDeps {
   env: Record<string, string>;
@@ -64,7 +64,7 @@ export async function generateTitle(prompt: string, deps: TitlerDeps): Promise<s
         allowedTools: [],
         maxTurns: 1,
         thinking: { type: 'disabled' },
-        title: 'Yes Code title generation',
+        title: 'Just Code title generation',
       },
     });
 

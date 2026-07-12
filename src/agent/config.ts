@@ -4,7 +4,7 @@ import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '../shared
 import { installHint, resolveClaudeBinary } from './cli';
 import { SYSTEM_PROMPT_APPEND } from './systemPrompt';
 
-const SECRET_KEY = 'yes-code.apiKey';
+const SECRET_KEY = 'just-code.apiKey';
 
 /** Thrown by {@link buildOptions} when no Claude Code installation can be found. */
 export class ClaudeRuntimeNotFoundError extends Error {
@@ -14,7 +14,7 @@ export class ClaudeRuntimeNotFoundError extends Error {
   }
 }
 
-/** User-configurable settings read from the `yes-code.*` configuration. */
+/** User-configurable settings read from the `just-code.*` configuration. */
 export interface HostConfig {
   model: ModelId;
   permissionMode: PermissionMode;
@@ -31,9 +31,9 @@ export interface HostConfig {
   loadProjectSettings: boolean;
 }
 
-/** Read the current `yes-code.*` settings snapshot. */
+/** Read the current `just-code.*` settings snapshot. */
 export function readConfig(): HostConfig {
-  const cfg = vscode.workspace.getConfiguration('yes-code');
+  const cfg = vscode.workspace.getConfiguration('just-code');
   return {
     model: cfg.get<ModelId>('model', 'default'),
     permissionMode: cfg.get<PermissionMode>('permissionMode', 'default'),
@@ -56,14 +56,14 @@ export function getWorkspaceRoot(): string | undefined {
 /**
  * Resolve the Anthropic API key, preferring (in order):
  *   1. VS Code SecretStorage
- *   2. the `yes-code.apiKey` setting
+ *   2. the `just-code.apiKey` setting
  *   3. the ambient `ANTHROPIC_API_KEY` environment variable
  */
 export async function resolveApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
   const fromSecret = await context.secrets.get(SECRET_KEY);
   if (fromSecret) return fromSecret;
 
-  const fromSetting = vscode.workspace.getConfiguration('yes-code').get<string>('apiKey', '');
+  const fromSetting = vscode.workspace.getConfiguration('just-code').get<string>('apiKey', '');
   if (fromSetting && fromSetting.trim()) return fromSetting.trim();
 
   const fromEnv = process.env.ANTHROPIC_API_KEY;
@@ -125,7 +125,7 @@ export function buildEnv(authMethod: AuthMethod, apiKey?: string): Record<string
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_AUTH_TOKEN;
   }
-  env.CLAUDE_AGENT_SDK_CLIENT_APP = 'yescode/1.0.0';
+  env.CLAUDE_AGENT_SDK_CLIENT_APP = 'justcode/1.0.0';
   return env;
 }
 

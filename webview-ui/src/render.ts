@@ -38,6 +38,20 @@ import { WorkingIndicator } from './working.js';
  */
 const blockText = new WeakMap<HTMLElement, string>();
 
+/** How many lines of a Bash step's output the transcript shows before linking out. */
+const IO_PREVIEW_LINES = 3;
+
+/**
+ * Full output text of every Bash step whose transcript preview was clipped,
+ * keyed by tool-use id. The click handler in `main.ts` reads it back to build
+ * the `openToolOutput` message.
+ */
+const toolOutputs = new Map<string, { name: string; text: string }>();
+
+export function toolOutput(toolUseId: string): { name: string; text: string } | undefined {
+  return toolOutputs.get(toolUseId);
+}
+
 /**
  * Pin the base direction of a text container, once, on the first strong character.
  *
@@ -194,7 +208,7 @@ export class Transcript {
     this.emptyEl.innerHTML =
       `<div class="empty-inner">` +
       `<div class="empty-logo">${logo(40)}</div>` +
-      `<h1 class="empty-title">Yes Code</h1>` +
+      `<h1 class="empty-title">Just Code</h1>` +
       `<p class="empty-sub">Ask about your codebase, edit files, run commands. Here are a few ideas:</p>` +
       `<div class="example-grid">${prompts}</div>` +
       `</div>`;
@@ -432,7 +446,7 @@ export class Transcript {
 
     if (isBash) {
       // Terminal-style IN / OUT panel.
-      bodyWrap.appendChild(renderIO(command || summary, tool.resultText));
+      bodyWrap.appendChild(renderIO(tool, command || summary, tool.resultText));
     } else {
       const path = typeof tool.input?.path === 'string' ? (tool.input.path as string) : tool.diff?.path;
       if (path) {
@@ -899,7 +913,7 @@ function toolSummary(tool: ToolUseView): string {
 }
 
 /** IN / OUT terminal panel for Bash steps. */
-function renderIO(command: string, output?: string): HTMLElement {
+function renderIO(tool: ToolUseView, command: string, output?: string): HTMLElement {
   const io = document.createElement('div');
   io.className = 'io';
   const inRow = document.createElement('div');
@@ -908,12 +922,26 @@ function renderIO(command: string, output?: string): HTMLElement {
   inRow.querySelector('.io-text')!.textContent = command;
   io.appendChild(inRow);
   if (output && output.trim()) {
+    const lines = output.replace(/\s+$/, '').split('\n');
+    const hidden = Math.max(0, lines.length - IO_PREVIEW_LINES);
     const outRow = document.createElement('div');
     outRow.className = 'io-row io-out';
-    const truncated = output.length > 4000 ? output.slice(0, 4000) + '\n…' : output;
     outRow.innerHTML = `<span class="io-label">OUT</span><span class="io-text"></span>`;
-    outRow.querySelector('.io-text')!.textContent = truncated;
+    outRow.querySelector('.io-text')!.textContent = lines.slice(0, IO_PREVIEW_LINES).join('\n');
     io.appendChild(outRow);
+    // The rest belongs in the editor area, not the transcript: the click handler
+    // in main.ts posts `openToolOutput`, which opens it as a read-only tab.
+    if (hidden > 0) {
+      toolOutputs.set(tool.id, { name: tool.name, text: output });
+      outRow.classList.add('io-openable');
+      outRow.setAttribute('data-tool-output', tool.id);
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'io-more';
+      more.setAttribute('data-tool-output', tool.id);
+      more.textContent = `+${hidden} ${plural(hidden, 'line')} — open full output`;
+      io.appendChild(more);
+    }
   }
   return io;
 }

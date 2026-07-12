@@ -158,7 +158,7 @@ export class Composer {
         <div class="chips chips-external" role="list"></div>
         <div class="input-field">
           <div class="input-highlight" aria-hidden="true"></div>
-          <textarea class="input" rows="1" placeholder="Ask Yes Code…  (@ for files, / for commands)"></textarea>
+          <textarea class="input" rows="1" placeholder="Ask Just Code…  (@ for files, / for commands)"></textarea>
         </div>
         <div class="completions" hidden></div>
         <div class="input-bar">

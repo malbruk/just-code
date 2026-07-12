@@ -33,7 +33,7 @@ import {
   appendMessage,
   type AppState,
 } from './state.js';
-import { Transcript } from './render.js';
+import { Transcript, toolOutput } from './render.js';
 import { Composer } from './composer.js';
 import { AccountDialog } from './account.js';
 import { imageSize } from './image.js';
@@ -363,7 +363,7 @@ function renderAuthGate(): void {
   } else {
     // choose
     body =
-      `<div class="auth-title">Sign in to Yes Code</div>` +
+      `<div class="auth-title">Sign in to Just Code</div>` +
       `<p class="auth-sub">Use your Claude subscription, or an Anthropic API key.</p>` +
       `<div class="auth-options">` +
       `<button type="button" class="auth-option" data-auth="subscription">` +
@@ -447,6 +447,16 @@ document.addEventListener('click', (e) => {
       post({ type: 'copy', text: code.textContent ?? '' });
       flashCopied(copyBtn as HTMLElement);
     }
+    return;
+  }
+
+  const outputEl = target.closest('[data-tool-output]');
+  // Dragging across the OUT preview to copy a line ends in a click; that must
+  // not yank the user into an editor tab.
+  if (outputEl && !window.getSelection()?.toString()) {
+    const toolUseId = outputEl.getAttribute('data-tool-output') ?? '';
+    const out = toolOutput(toolUseId);
+    if (out) post({ type: 'openToolOutput', toolUseId, toolName: out.name, text: out.text });
     return;
   }
 

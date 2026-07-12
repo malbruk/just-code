@@ -196,7 +196,7 @@ let cachedBin: string | null | undefined;
  * no Claude Code installation can be found.
  *
  * Search order (first hit wins):
- *   1. the `yes-code.claudeExecutablePath` setting, if set
+ *   1. the `just-code.claudeExecutablePath` setting, if set
  *   2. Node resolution — a bundled SDK binary, or the `@anthropic-ai/claude-code` package
  *   3. `PATH`
  *   4. well-known npm-global / native-installer locations
@@ -209,7 +209,7 @@ let cachedBin: string | null | undefined;
 export function resolveClaudeBinary(): string | undefined {
   if (cachedBin !== undefined) return cachedBin ?? undefined;
 
-  const configured = vscode.workspace.getConfiguration('yes-code').get<string>('claudeExecutablePath', '');
+  const configured = vscode.workspace.getConfiguration('just-code').get<string>('claudeExecutablePath', '');
   if (configured && configured.trim()) {
     const found = deshim(expandUserPath(configured));
     // An explicit setting is authoritative: if it is wrong, fail loudly rather
@@ -234,11 +234,11 @@ export const INSTALL_DOCS_URL = 'https://code.claude.com/docs/en/quickstart';
 /** Human-readable install hint for the current platform. */
 export function installHint(): string {
   return (
-    'Claude Code was not found on this machine. Yes Code runs Anthropic’s Claude Code runtime locally, ' +
+    'Claude Code was not found on this machine. Just Code runs Anthropic’s Claude Code runtime locally, ' +
     'so it must be installed first:\n\n' +
     '```\nnpm install -g @anthropic-ai/claude-code\n```\n\n' +
     `See the [installation guide](${INSTALL_DOCS_URL}). ` +
-    'If it is already installed somewhere unusual, set `yes-code.claudeExecutablePath` to its full path.'
+    'If it is already installed somewhere unusual, set `just-code.claudeExecutablePath` to its full path.'
   );
 }
 
@@ -302,7 +302,7 @@ export async function logout(bin: string): Promise<void> {
  * the extension panel.
  */
 export function runLoginInTerminal(bin: string, mode: 'subscription' | 'console', email?: string): vscode.Terminal {
-  const terminal = vscode.window.createTerminal({ name: 'Yes Code Login' });
+  const terminal = vscode.window.createTerminal({ name: 'Just Code Login' });
   const args = ['auth', 'login', mode === 'console' ? '--console' : '--claudeai'];
   if (email) args.push('--email', email);
   const quoted = `"${bin}" ${args.join(' ')}`;
@@ -349,7 +349,7 @@ export function startLogin(bin: string, mode: 'subscription' | 'console', email?
   // context. We suppress the auto-open by pointing `$BROWSER` at a command that
   // won't resolve (the CLI treats "not found" as a no-op with no window) so the
   // only browser tab is the manual URL we open ourselves via `openExternal`.
-  const env = { ...process.env, BROWSER: 'yes-code-no-browser' };
+  const env = { ...process.env, BROWSER: 'just-code-no-browser' };
   const child = spawn(bin, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env });
 
   let buffer = '';

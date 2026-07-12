@@ -42,6 +42,7 @@ import type { ClassifiedError } from './errors';
 import { officialExtensionInstalled } from './coexist';
 import { PermissionBridge } from '../tools/permissions';
 import { PendingEditManager } from '../tools/diff';
+import { showToolOutput } from '../tools/toolOutput';
 import { EditorContextTracker } from '../context/editorContext';
 import { handleCompletions, SLASH_COMMANDS } from '../context/completions';
 import { deleteHistorySession, listHistory, loadSessionMessages } from '../history/history';
@@ -214,6 +215,9 @@ export class SessionManager implements vscode.Disposable {
       case 'openFile':
         await this.openFile(msg.path, msg.line);
         return;
+      case 'openToolOutput':
+        await showToolOutput(msg.toolName, msg.toolUseId, msg.text);
+        return;
       case 'showDiff':
         await this.edits.openDiff(msg.toolUseId);
         return;
@@ -339,12 +343,12 @@ export class SessionManager implements vscode.Disposable {
     switch (error.kind) {
       case 'auth':
         void vscode.window
-          .showErrorMessage(`Yes Code: ${error.message}${suffix}`, 'Sign In', 'Show Log')
+          .showErrorMessage(`Just Code: ${error.message}${suffix}`, 'Sign In', 'Show Log')
           .then(show);
         break;
       case 'configConflict':
       case 'usageLimit':
-        void vscode.window.showWarningMessage(`Yes Code: ${error.message}${suffix}`, 'Show Log').then(show);
+        void vscode.window.showWarningMessage(`Just Code: ${error.message}${suffix}`, 'Show Log').then(show);
         break;
       default:
         // `runtimeExit` / `unknown` are already visible inline; don't interrupt.
@@ -437,7 +441,7 @@ export class SessionManager implements vscode.Disposable {
     if (!this.signedIn) {
       await this.refreshAuth();
       if (!this.signedIn) {
-        this.post({ type: 'error', message: 'Not signed in. Run “Yes Code: Sign In” to connect your Claude subscription or an API key.' });
+        this.post({ type: 'error', message: 'Not signed in. Run “Just Code: Sign In” to connect your Claude subscription or an API key.' });
         return;
       }
     }
@@ -495,7 +499,7 @@ export class SessionManager implements vscode.Disposable {
             this.postSystem(`Unknown model “${arg}”. Try: ${MODELS.map((m) => `\`${m.label}\``).join(', ')}.`);
           }
         } else {
-          await vscode.commands.executeCommand('yes-code.selectModel');
+          await vscode.commands.executeCommand('just-code.selectModel');
         }
         return 'handled';
 
@@ -511,12 +515,12 @@ export class SessionManager implements vscode.Disposable {
             this.postSystem('Unknown mode. Try: `default`, `acceptEdits`, `plan`, `bypassPermissions`.');
           }
         } else {
-          await vscode.commands.executeCommand('yes-code.setPermissionMode');
+          await vscode.commands.executeCommand('just-code.setPermissionMode');
         }
         return 'handled';
 
       case '/config':
-        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:MaBrukDev.yescode');
+        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:MaBrukDev.justcode');
         return 'handled';
 
       case '/cost':
@@ -561,7 +565,7 @@ export class SessionManager implements vscode.Disposable {
         this.echoCommand(raw);
         this.postSystem(
           'Subagents are defined by Markdown files in `.claude/agents/` (project) or `~/.claude/agents/` (global). ' +
-            'Create one there and Yes Code will pick it up on the next request.',
+            'Create one there and Just Code will pick it up on the next request.',
         );
         return 'handled';
 
@@ -577,7 +581,7 @@ export class SessionManager implements vscode.Disposable {
 
       case '/bug':
         await vscode.env.openExternal(
-          vscode.Uri.parse('https://github.com/malbruk/yes-code/issues/new'),
+          vscode.Uri.parse('https://github.com/malbruk/just-code/issues/new'),
         );
         return 'handled';
 
@@ -654,7 +658,7 @@ export class SessionManager implements vscode.Disposable {
       (c) => `- \`${c.name}${c.argHint ? ` ${c.argHint}` : ''}\` — ${c.description}`,
     );
     return (
-      '### Yes Code commands\n\n' +
+      '### Just Code commands\n\n' +
       lines.join('\n') +
       '\n\nType `@` to attach files, `/` to run a command. Press **Shift+Enter** for a newline.'
     );
@@ -712,7 +716,7 @@ export class SessionManager implements vscode.Disposable {
   private async mcpStatusText(): Promise<string> {
     if (!readConfig().loadProjectSettings) {
       return (
-        '### MCP servers\n\nMCP is disabled: `yes-code.loadProjectSettings` is off, so no ' +
+        '### MCP servers\n\nMCP is disabled: `just-code.loadProjectSettings` is off, so no ' +
         'settings sources are loaded. Turn it on to use MCP servers from your user or project configuration.'
       );
     }
@@ -754,7 +758,7 @@ export class SessionManager implements vscode.Disposable {
 
   private releaseNotesText(): string {
     return (
-      '### Yes Code\n\n' +
+      '### Just Code\n\n' +
       'A community VS Code extension built on the Claude Agent SDK. ' +
       'See the repository CHANGELOG for the full history of changes.'
     );
@@ -781,7 +785,7 @@ export class SessionManager implements vscode.Disposable {
       this.postSystem('Usage: `/add-dir <path>` — provide a directory to grant the agent access to.');
       return;
     }
-    const cfg = vscode.workspace.getConfiguration('yes-code');
+    const cfg = vscode.workspace.getConfiguration('just-code');
     const dirs = cfg.get<string[]>('additionalDirectories', []);
     if (dirs.includes(arg)) {
       this.postSystem(`\`${arg}\` is already in the allowed directories.`);
@@ -915,7 +919,7 @@ export class SessionManager implements vscode.Disposable {
 
   async setModel(model: ModelId): Promise<void> {
     this.model = model;
-    await vscode.workspace.getConfiguration('yes-code').update('model', model, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('just-code').update('model', model, vscode.ConfigurationTarget.Global);
     await this.session?.setModel(model);
     this.postSettings();
   }
@@ -924,7 +928,7 @@ export class SessionManager implements vscode.Disposable {
     this.permissionMode = mode;
     this.permissions.setMode(mode);
     await vscode.workspace
-      .getConfiguration('yes-code')
+      .getConfiguration('just-code')
       .update('permissionMode', mode, vscode.ConfigurationTarget.Global);
     await this.session?.setPermissionMode(mode);
     this.postSettings();
@@ -937,7 +941,7 @@ export class SessionManager implements vscode.Disposable {
    */
   async setEffort(effort: EffortLevel): Promise<void> {
     this.effort = effort;
-    await vscode.workspace.getConfiguration('yes-code').update('effort', effort, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration('just-code').update('effort', effort, vscode.ConfigurationTarget.Global);
     this.postSettings();
   }
 
@@ -945,7 +949,7 @@ export class SessionManager implements vscode.Disposable {
   async setThinking(enabled: boolean): Promise<void> {
     this.extendedThinking = enabled;
     await vscode.workspace
-      .getConfiguration('yes-code')
+      .getConfiguration('just-code')
       .update('extendedThinking', enabled, vscode.ConfigurationTarget.Global);
     await this.session?.setThinking(enabled);
     this.postSettings();
@@ -955,7 +959,7 @@ export class SessionManager implements vscode.Disposable {
   async setModelFallback(enabled: boolean): Promise<void> {
     this.autoModelFallback = enabled;
     await vscode.workspace
-      .getConfiguration('yes-code')
+      .getConfiguration('just-code')
       .update('autoModelFallback', enabled, vscode.ConfigurationTarget.Global);
     this.postSettings();
   }
@@ -1319,7 +1323,7 @@ export class SessionManager implements vscode.Disposable {
     await this.refreshAuth();
     if (this.signedIn) {
       vscode.window.showInformationMessage(
-        `Yes Code: signed in${this.auth.email ? ` as ${this.auth.email}` : ''}${this.auth.plan ? ` (${this.auth.plan})` : ''}.`,
+        `Just Code: signed in${this.auth.email ? ` as ${this.auth.email}` : ''}${this.auth.plan ? ` (${this.auth.plan})` : ''}.`,
       );
     } else {
       this.postAuthPrompt('error', {
@@ -1336,7 +1340,7 @@ export class SessionManager implements vscode.Disposable {
     await this.setAuthMethod('apiKey');
     await this.refreshAuth();
     if (this.signedIn) {
-      vscode.window.showInformationMessage('Yes Code: API key saved.');
+      vscode.window.showInformationMessage('Just Code: API key saved.');
     } else {
       this.postAuthPrompt('error', { method: 'apiKey', message: 'Could not validate the API key. Please try again.' });
     }
@@ -1349,7 +1353,7 @@ export class SessionManager implements vscode.Disposable {
 
   private async setAuthMethod(method: AuthMethod): Promise<void> {
     await vscode.workspace
-      .getConfiguration('yes-code')
+      .getConfiguration('just-code')
       .update('authMethod', method, vscode.ConfigurationTarget.Global);
   }
 
@@ -1362,7 +1366,7 @@ export class SessionManager implements vscode.Disposable {
       await clearApiKey(this.context);
     }
     await this.refreshAuth();
-    vscode.window.showInformationMessage('Yes Code: signed out.');
+    vscode.window.showInformationMessage('Just Code: signed out.');
   }
 
   dispose(): void {

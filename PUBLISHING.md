@@ -1,10 +1,19 @@
-# Publishing Green Code to the VS Code Marketplace
+# Publishing Just Code to the VS Code Marketplace
 
-Everything here is one-time setup except the last section. `npm run publish:check`
-blocks a release while any of it is still undone.
+The publisher (`MaBrukDev`) and the Entra ID credential (Option A) are set up and reusable.
+The rest of sections 1–3 is **not** carried over from the old name: renaming the extension
+from Yes Code to Just Code changed `name` from `yescode` to `justcode`, so
+`MaBrukDev.justcode` is a **new listing** whose first publish claims that name permanently,
+and `github.com/malbruk/just-code` must exist before the marketplace page can link to it.
+Once both are true, a release is [section 5](#5-cutting-and-publishing-a-new-version).
+
+> The old listing, `MaBrukDev.yescode`, keeps running for whoever installed it. It will
+> never see the rename: an extension id is its identity on the marketplace, so existing
+> users get no update, and their `yes-code.*` settings and keybindings do not carry over.
+> Deprecate it deliberately rather than leaving two live listings.
 
 > **Publishing is not reversible in the way that matters.** `vsce unpublish` removes the
-> listing, but the extension name `<publisher>.green-code` stays claimed. Get the identity
+> listing, but the extension name `<publisher>.<name>` stays claimed. Get the identity
 > right before the first push.
 
 ---
@@ -74,26 +83,32 @@ your `az login` session (or a managed identity in CI).
 
 ## 3. Create the GitHub repository
 
-The marketplace page links to `repository`, `bugs`, and `homepage`. Right now they point at
-`github.com/community/green-code`, which does not exist — those links would 404.
+The marketplace page links to `repository`, `bugs`, and `homepage`, so they must resolve.
+Preflight blocks on a placeholder URL, but it cannot tell a live URL from a dead one — and
+`package.json` now points at `github.com/malbruk/just-code`, which is the **old repository
+under its new name**. Rename it on GitHub (Settings → General → Repository name), then
+repoint the remote:
 
 ```bash
-gh repo create <owner>/green-code --public --source . --remote origin --push
+git remote set-url origin git@github.com:malbruk/just-code.git
 ```
+
+GitHub redirects the old path, so clones and pushes keep working either way; the rename is
+about the marketplace links resolving to something that is not a redirect.
 
 Then update `package.json`:
 
 ```json
-"repository": { "type": "git", "url": "https://github.com/<owner>/green-code.git" },
-"bugs":       { "url": "https://github.com/<owner>/green-code/issues" },
-"homepage":   "https://github.com/<owner>/green-code#readme"
+"repository": { "type": "git", "url": "https://github.com/<owner>/<repo>.git" },
+"bugs":       { "url": "https://github.com/<owner>/<repo>/issues" },
+"homepage":   "https://github.com/<owner>/<repo>#readme"
 ```
 
 ## 4. Read this before you publish
 
 Two things about this extension deserve a decision, not a default.
 
-**Authentication.** `green-code.authMethod` defaults to `subscription`, which drives
+**Authentication.** `just-code.authMethod` defaults to `subscription`, which drives
 `claude auth login` from inside the extension. Anthropic's
 [Authentication and credential use](https://code.claude.com/docs/en/legal-and-compliance)
 policy currently says developers building on the Agent SDK "should use API key
@@ -101,7 +116,7 @@ authentication", and that Anthropic "does not permit third-party developers to o
 Claude.ai login or to route requests through Free, Pro, or Max plan credentials on behalf
 of their users", reserving the right to enforce "without prior notice."
 
-Green Code routes nothing on anyone's behalf — it invokes Anthropic's own runtime with the
+Just Code routes nothing on anyone's behalf — it invokes Anthropic's own runtime with the
 user's own local credentials. Whether that distinction holds is not settled. Running it
 yourself is ordinary use of your own subscription; *shipping* it to strangers with
 subscription login as the default is the exposed position. Switching the default to
@@ -115,22 +130,92 @@ notice required by Anthropic's
 *"You will not make any statement regarding the Anthropic Services which suggests
 partnership with, sponsorship by, or endorsement by Anthropic."*
 
-## 5. Publish
+## 5. Cutting and publishing a new version
+
+Sections 1–3 are done. This is the whole release, in order. Run every step from the repo
+root on `master`, with a clean working tree.
+
+### Step 1 — start from a clean, pushed `master`
 
 ```bash
-npm run publish:check          # blocks on placeholders, stale changelog, bundled binary
-npm run publish:marketplace    # preflight, then vsce publish --azure-credential
+git status --short            # must print nothing
+git pull --ff-only origin master
 ```
 
-Use `npm run publish:marketplace:pat` instead if you took Option B. To cut a new version:
+### Step 2 — run the verification suite
+
+There is no unit-test runner; these six scripts *are* the suite. All must pass before you
+touch the version.
 
 ```bash
-npm version patch          # or minor / major — bumps package.json
-# add a "## <version>" section to CHANGELOG.md   ← preflight fails without it
-npm run publish:marketplace
+npm run check-types           # tsc --noEmit, whole project
+node esbuild.js               # both bundles must build
+node scratch/activate-test.js # every contributes.commands entry is registered
+node scratch/binary-test.js   # native `claude` still resolves, in-repo and out-of-tree
+node scratch/mcp-test.mjs     # live: stdio MCP server connects, tool executes
+node scratch/guardrail-test.mjs  # live: the scope layer still refuses off-topic prompts
 ```
 
-The listing appears within a few minutes; the search index takes longer.
+> `guardrail-test.mjs` runs real turns under `maxTurns: 1`, so it throws
+> `Reached maximum number of turns (1)` whenever a case spends its one turn on a tool call
+> instead of answering. That is a flake in the test, not a scope regression. **Rerun it**;
+> a real failure prints `FAIL` lines and `GUARDRAIL_TEST: FAIL (n/7)`.
+
+### Step 3 — bump the version, without letting npm commit it
+
+`npm version` would commit and tag on its own, splitting the bump from the changelog entry
+that has to accompany it. Suppress that:
+
+```bash
+npm version patch --no-git-tag-version    # or minor / major
+```
+
+### Step 4 — write the changelog section
+
+Add a `## <new-version>` heading to the top of `CHANGELOG.md`, above the previous release.
+
+**Preflight hard-fails without a heading that matches `package.json` exactly** — this is the
+single most common thing that blocks a release. It is a literal `^## <version>$` match, so
+`## v1.0.4` and `## 1.0.4 — title` both fail.
+
+### Step 5 — commit the bump and the changelog together
+
+```bash
+git add package.json package-lock.json CHANGELOG.md
+git commit -m "Release <version>"
+git push origin master
+```
+
+### Step 6 — make sure the Entra credential is live
+
+```bash
+az account show     # if this errors, run: az login
+```
+
+Skip this if you took Option B (PAT); `vsce login` is a one-time step.
+
+### Step 7 — preflight, then publish
+
+```bash
+npm run publish:check         # placeholders, stale changelog, bundled binary, LICENSE, icon
+npm run publish:marketplace   # re-runs preflight, then vsce publish --azure-credential
+```
+
+`publish:marketplace` runs `publish:check` itself, so step 7's first command is only there
+to let you see the blockers before anything is uploaded. Use
+`npm run publish:marketplace:pat` instead if you took Option B.
+
+Success looks like `DONE  Published <publisher>.<name> v<version>.`
+
+### Step 8 — verify
+
+```bash
+npx @vscode/vsce show MaBrukDev.justcode
+```
+
+**Expect this to still report the previous version for a few minutes.** `vsce publish`
+printing `DONE` is the authoritative signal; `vsce show` reads the search index, which lags
+behind the listing. Do not republish because this looks stale.
 
 ## 6. Open VSX (optional)
 
@@ -138,7 +223,8 @@ Cursor, VSCodium, and Windsurf use [Open VSX](https://open-vsx.org), not the Mic
 marketplace. Publishing there is separate:
 
 ```bash
-npx ovsx publish green-code-<version>.vsix -p <open-vsx-token>
+npm run vsix                                    # → just-code.vsix
+npx ovsx publish just-code.vsix -p <open-vsx-token>
 ```
 
 ---

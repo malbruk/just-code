@@ -5,12 +5,12 @@ import { getNonce } from '../util/nonce';
 import type { Logger } from '../util/logger';
 
 /**
- * Hosts the chat webview both as a sidebar view (`yes-code.chat`) and, on
+ * Hosts the chat webview both as a sidebar view (`just-code.chat`) and, on
  * demand, as an editor-tab panel. All live webviews share the same
  * {@link SessionManager}; host messages are broadcast to every one of them.
  */
 export class ChatViewProvider implements vscode.WebviewViewProvider {
-  static readonly viewType = 'yes-code.chat';
+  static readonly viewType = 'just-code.chat';
 
   private readonly webviews = new Set<vscode.Webview>();
   private view: vscode.WebviewView | undefined;
@@ -40,8 +40,8 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   /** Open the chat in an editor tab, reusing the same HTML/bridge. */
   openInEditor(): void {
     const panel = vscode.window.createWebviewPanel(
-      'yes-code.chatEditor',
-      'Yes Code',
+      'just-code.chatEditor',
+      'Just Code',
       vscode.ViewColumn.Active,
       this.webviewOptions(),
     );
@@ -55,7 +55,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
     if (this.view) {
       this.view.show?.(true);
     } else {
-      await vscode.commands.executeCommand('yes-code.chat.focus');
+      await vscode.commands.executeCommand('just-code.chat.focus');
     }
   }
 
@@ -106,7 +106,7 @@ export class ChatViewProvider implements vscode.WebviewViewProvider {
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="${styleUri}" rel="stylesheet" />
-  <title>Yes Code</title>
+  <title>Just Code</title>
 </head>
 <body>
   <script nonce="${nonce}" src="${scriptUri}"></script>

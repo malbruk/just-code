@@ -4,6 +4,7 @@ import { clearBinaryCache } from './agent/cli';
 import { showCoexistenceTipOnce } from './agent/coexist';
 import { SessionManager } from './agent/sessionManager';
 import { ChatViewProvider } from './panel/chatViewProvider';
+import { registerToolOutputDocuments } from './tools/toolOutput';
 import { MODELS } from './shared/protocol';
 import type { ModelId, PermissionMode } from './shared/protocol';
 
@@ -12,7 +13,7 @@ let logger: Logger | undefined;
 export function activate(context: vscode.ExtensionContext): void {
   const log = new Logger();
   logger = log;
-  log.info('Yes Code activating');
+  log.info('Just Code activating');
 
   const manager = new SessionManager(context, log);
   const provider = new ChatViewProvider(context, manager, log);
@@ -23,6 +24,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(ChatViewProvider.viewType, provider, {
       webviewOptions: { retainContextWhenHidden: true },
     }),
+    registerToolOutputDocuments(),
   );
 
   const cmd = (id: string, fn: (...args: any[]) => unknown): vscode.Disposable =>
@@ -31,52 +33,52 @@ export function activate(context: vscode.ExtensionContext): void {
         return fn(...args);
       } catch (err) {
         log.error(`Command ${id} failed`, err);
-        vscode.window.showErrorMessage(`Yes Code: ${err instanceof Error ? err.message : String(err)}`);
+        vscode.window.showErrorMessage(`Just Code: ${err instanceof Error ? err.message : String(err)}`);
       }
     });
 
   context.subscriptions.push(
-    cmd('yes-code.openChat', () => provider.reveal()),
-    cmd('yes-code.newChat', () => manager.newChat()),
-    cmd('yes-code.newChatInEditor', () => provider.openInEditor()),
-    cmd('yes-code.stop', () => manager.stop()),
-    cmd('yes-code.history', async () => {
+    cmd('just-code.openChat', () => provider.reveal()),
+    cmd('just-code.newChat', () => manager.newChat()),
+    cmd('just-code.newChatInEditor', () => provider.openInEditor()),
+    cmd('just-code.stop', () => manager.stop()),
+    cmd('just-code.history', async () => {
       await provider.reveal();
       await manager.sendHistory();
     }),
-    cmd('yes-code.addSelectionToChat', () => manager.addSelectionToChat()),
-    cmd('yes-code.addFileToChat', (uri?: vscode.Uri) => {
+    cmd('just-code.addSelectionToChat', () => manager.addSelectionToChat()),
+    cmd('just-code.addFileToChat', (uri?: vscode.Uri) => {
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (target) return manager.addFileToChat(target);
       return undefined;
     }),
-    cmd('yes-code.explainSelection', () => manager.explainSelection()),
-    cmd('yes-code.fixSelection', () => manager.fixSelection()),
-    cmd('yes-code.acceptAllEdits', () => manager.acceptAllEdits()),
-    cmd('yes-code.rejectAllEdits', () => manager.rejectAllEdits()),
-    cmd('yes-code.acceptEdit', (toolUseId?: string) => {
+    cmd('just-code.explainSelection', () => manager.explainSelection()),
+    cmd('just-code.fixSelection', () => manager.fixSelection()),
+    cmd('just-code.acceptAllEdits', () => manager.acceptAllEdits()),
+    cmd('just-code.rejectAllEdits', () => manager.rejectAllEdits()),
+    cmd('just-code.acceptEdit', (toolUseId?: string) => {
       if (toolUseId) manager.acceptEdit(toolUseId);
     }),
-    cmd('yes-code.rejectEdit', (toolUseId?: string) => {
+    cmd('just-code.rejectEdit', (toolUseId?: string) => {
       if (toolUseId) return manager.rejectEdit(toolUseId);
       return undefined;
     }),
-    cmd('yes-code.selectModel', () => selectModel(manager)),
-    cmd('yes-code.setPermissionMode', () => selectPermissionMode(manager)),
-    cmd('yes-code.signIn', () => manager.signIn()),
-    cmd('yes-code.signOut', () => manager.signOut()),
-    cmd('yes-code.rewind', () => undefined),
-    cmd('yes-code.focusInput', async () => {
+    cmd('just-code.selectModel', () => selectModel(manager)),
+    cmd('just-code.setPermissionMode', () => selectPermissionMode(manager)),
+    cmd('just-code.signIn', () => manager.signIn()),
+    cmd('just-code.signOut', () => manager.signOut()),
+    cmd('just-code.rewind', () => undefined),
+    cmd('just-code.focusInput', async () => {
       await provider.reveal();
       manager.focusInput();
     }),
-    cmd('yes-code.moveView', () => moveChatToDrawer()),
+    cmd('just-code.moveView', () => moveChatToDrawer()),
   );
 
   // Re-evaluate auth if the stored secret changes elsewhere.
   context.subscriptions.push(
     context.secrets.onDidChange((e) => {
-      if (e.key === 'yes-code.apiKey') void manager.refreshAuth();
+      if (e.key === 'just-code.apiKey') void manager.refreshAuth();
     }),
   );
 
@@ -84,22 +86,22 @@ export function activate(context: vscode.ExtensionContext): void {
   // a different executable — otherwise the stale path survives until reload.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('yes-code.claudeExecutablePath')) {
+      if (e.affectsConfiguration('just-code.claudeExecutablePath')) {
         clearBinaryCache();
         void manager.refreshAuth();
       }
     }),
   );
 
-  void vscode.commands.executeCommand('setContext', 'yes-code.hasPendingEdits', false);
+  void vscode.commands.executeCommand('setContext', 'just-code.hasPendingEdits', false);
 
   // One-time tip: how to keep files + chat visible side by side.
-  const TIP_KEY = 'yes-code.placementTipShown';
+  const TIP_KEY = 'just-code.placementTipShown';
   if (!context.globalState.get<boolean>(TIP_KEY)) {
     void context.globalState.update(TIP_KEY, true);
     void vscode.window
       .showInformationMessage(
-        'Yes Code opens in the side bar. Move it to a side drawer to chat while your files and Explorer stay visible.',
+        'Just Code opens in the side bar. Move it to a side drawer to chat while your files and Explorer stay visible.',
         'Move to Side Drawer',
         'Not now',
       )
@@ -121,18 +123,18 @@ export function activate(context: vscode.ExtensionContext): void {
  */
 async function moveChatToDrawer(): Promise<void> {
   try {
-    await vscode.commands.executeCommand('yes-code.chat.focus');
+    await vscode.commands.executeCommand('just-code.chat.focus');
     await vscode.commands.executeCommand('workbench.action.moveFocusedView');
   } catch {
     await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
     void vscode.window.showInformationMessage(
-      'Drag the Yes Code view into the Secondary Side Bar to dock it as a right-hand drawer.',
+      'Drag the Just Code view into the Secondary Side Bar to dock it as a right-hand drawer.',
     );
   }
 }
 
 export function deactivate(): void {
-  logger?.info('Yes Code deactivating');
+  logger?.info('Just Code deactivating');
 }
 
 async function selectModel(manager: SessionManager): Promise<void> {

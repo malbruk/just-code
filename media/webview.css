@@ -12,6 +12,11 @@
   /* Horizontal breathing room shared by the header, transcript and composer, so
      the three columns line up on one edge (as in Claude Code). */
   --cc-pad: 18px;
+  /* Timeline geometry. The bidi rules re-use these to inset RTL prose from the
+     trailing edge by exactly what the dot + gap inset LTR prose from the leading
+     one, so a Hebrew answer isn't flush against the panel border. */
+  --cc-dot-size: 7px;
+  --cc-step-gap: 10px;
   --cc-border: var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
   --cc-muted: var(--vscode-descriptionForeground, rgba(128, 128, 128, 0.9));
   /*
@@ -32,11 +37,11 @@
   --cc-code-fg: color-mix(in srgb, var(--vscode-textPreformat-foreground, #d7ba7d) 88%, #000);
   --cc-add: var(--vscode-gitDecoration-addedResourceForeground, #4ba85a);
   --cc-del: var(--vscode-gitDecoration-deletedResourceForeground, #d15a5a);
-  /* The brand green, for the focused composer + send button. Deliberately a
+  /* The brand coral, for the focused composer + send button. Deliberately a
      fixed brand colour, not a theme variable, so it reads the same everywhere.
-     Same hue as the icon's green, darkened so white text clears 3.5:1 on it. */
-  --cc-accent: #4a9433;
-  --cc-accent-hover: #56a63f;
+     Same hue as the icon's coral, darkened so white text clears 3.5:1 on it. */
+  --cc-accent: #de5750;
+  --cc-accent-hover: #e8655e;
   --cc-accent-fg: #ffffff;
 }
 
@@ -232,7 +237,7 @@ body {
 .step {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: var(--cc-step-gap);
 }
 
 .step-main {
@@ -254,8 +259,8 @@ body {
 
 .step-dot {
   flex: none;
-  width: 7px;
-  height: 7px;
+  width: var(--cc-dot-size);
+  height: var(--cc-dot-size);
   margin-top: 7px;
   border-radius: 50%;
   background: var(--cc-muted);
@@ -512,6 +517,16 @@ code {
   text-align: start;
 }
 
+/*
+ * A step's content starts after the status dot and its gap, so LTR prose is
+ * inset from the panel edge while RTL prose would run flush against it. Mirror
+ * that inset onto the trailing edge of any block that latched to RTL.
+ */
+.step-main[dir='rtl'],
+.thinking-body[dir='rtl'] {
+  padding-right: calc(var(--cc-dot-size) + var(--cc-step-gap));
+}
+
 /* an identifier like `foo.bar()` must not be re-ordered by surrounding Hebrew */
 .md-code,
 code,
@@ -587,12 +602,13 @@ code {
   transform: rotate(90deg);
 }
 
+/* the rule follows the text: left of LTR prose, right of RTL prose */
 .thinking-body {
   color: var(--cc-muted);
   margin-top: 8px;
   font-size: 0.95em;
-  border-left: 2px solid var(--cc-border);
-  padding-left: 10px;
+  border-inline-start: 2px solid var(--cc-border);
+  padding-inline-start: 10px;
 }
 
 /* no thinking text captured → just a label, nothing to expand */
@@ -757,6 +773,34 @@ code {
 
 .io-out .io-text {
   color: var(--cc-muted);
+}
+
+/* A clipped OUT preview: the row and its footer both open the full text as a
+   read-only editor tab, so long output never scrolls inside the transcript. */
+.io-openable {
+  cursor: pointer;
+}
+
+.io-openable:hover {
+  background: rgba(128, 128, 128, 0.06);
+}
+
+.io-more {
+  display: block;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  border-top: 1px solid var(--cc-border);
+  background: transparent;
+  color: var(--vscode-textLink-foreground);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.io-more:hover {
+  background: rgba(128, 128, 128, 0.06);
+  text-decoration: underline;
 }
 
 .tool-file {

@@ -19,7 +19,7 @@ import * as vscode from 'vscode';
 
 export const OFFICIAL_EXTENSION_ID = 'anthropic.claude-code';
 
-const TIP_KEY = 'yes-code.coexistenceTipShown';
+const TIP_KEY = 'just-code.coexistenceTipShown';
 
 /** True when Anthropic's Claude Code extension is installed and enabled. */
 export function officialExtensionInstalled(): boolean {
@@ -36,7 +36,7 @@ export async function showCoexistenceTipOnce(context: vscode.ExtensionContext): 
   await context.globalState.update(TIP_KEY, true);
 
   const choice = await vscode.window.showInformationMessage(
-    'Yes Code and Anthropic’s Claude Code extension are both installed. They share the same sign-in, configuration file, ' +
+    'Just Code and Anthropic’s Claude Code extension are both installed. They share the same sign-in, configuration file, ' +
       'and plan usage — running a prompt in both at once usually works, but can occasionally make one session fail.',
     'Got it',
   );

@@ -74,4 +74,4 @@ Ignore unrecognized message types gracefully (there are many: status, task_*, th
 
 ## Auth
 Set `ANTHROPIC_API_KEY` in `options.env`. Read it from VS Code SecretStorage (preferred) or the
-`yes-code.apiKey` setting or the ambient env var. If none present, surface a "Sign in" prompt.
+`just-code.apiKey` setting or the ambient env var. If none present, surface a "Sign in" prompt.

@@ -118,11 +118,11 @@ interface PendingEdit {
 /**
  * Tracks edits that have been written to disk by the agent but not yet
  * accepted by the user. "Reject" restores the pre-edit snapshot; "accept"
- * simply forgets it. Also owns the `yes-code.hasPendingEdits` context key
+ * simply forgets it. Also owns the `just-code.hasPendingEdits` context key
  * and a virtual-document provider so we can open native diff editors.
  */
 export class PendingEditManager implements vscode.Disposable {
-  static readonly SCHEME = 'yes-code-diff';
+  static readonly SCHEME = 'just-code-diff';
   private readonly pending = new Map<string, PendingEdit>();
   private readonly snapshotContent = new Map<string, string>();
   private readonly disposables: vscode.Disposable[] = [];
@@ -226,7 +226,7 @@ export class PendingEditManager implements vscode.Disposable {
   }
 
   private updateContextKey(): void {
-    void vscode.commands.executeCommand('setContext', 'yes-code.hasPendingEdits', this.pending.size > 0);
+    void vscode.commands.executeCommand('setContext', 'just-code.hasPendingEdits', this.pending.size > 0);
   }
 
   dispose(): void {

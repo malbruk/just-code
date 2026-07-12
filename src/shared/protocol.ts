@@ -451,6 +451,8 @@ export type WebviewToHost =
   | { type: 'rejectAllEdits' }
   /** Open a file (optionally at a line) in the editor. */
   | { type: 'openFile'; path: string; line?: number }
+  /** Show a tool's full output as a read-only document in the editor area. */
+  | { type: 'openToolOutput'; toolUseId: string; toolName: string; text: string }
   /** Show a diff for a tool result. */
   | { type: 'showDiff'; toolUseId: string }
   /** Request history entries. */
