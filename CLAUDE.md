@@ -13,6 +13,12 @@ subscription/API-key auth.
 
 Not affiliated with Anthropic. TypeScript throughout, `strict: true`.
 
+## Shell Environment
+
+This machine runs Windows/PowerShell. Never use bash-only syntax (here-strings, single-quote
+escaping, `$'...'`) in Bash tool calls. For multi-line git commit messages, write the message
+to a temp file and use `git commit -F <file>`.
+
 ## Commands
 
 ```bash
@@ -54,6 +60,18 @@ There is no unit-test runner; verify with the scripts below.
   real turn. Extend it when adding a client-side slash command.
 - Native binary / auth path: `node -e` resolving `@anthropic-ai/claude-agent-sdk-<plat>/claude(.exe)`
   and running `claude auth status --json` (see git history / scratch for the exact snippet).
+
+### Verifying UI changes
+
+VS Code loads the *installed* extension copy, not the working tree. After any webview/CSS/icon
+change, run the full build and reinstall the VSIX (or reload the Extension Development Host)
+before claiming the change is visible. Never state "it should now show X" without a
+build + reinstall step.
+
+## Debugging
+
+Before proposing a cause for a numeric/behavioral bug, gather real evidence (debug logs, actual
+values, screenshots). Do not assert a cause from assumption — say "I need to see X" instead.
 
 ## Architecture
 
@@ -201,3 +219,14 @@ throwaway verification scripts (gitignored).
   variables so it works in light/dark/high-contrast.
 - After any change, run `check-types` + `node esbuild.js`; for host/manifest changes
   also run `scratch/activate-test.js`.
+
+## Git Boundaries
+
+Never modify git remotes, force-push, or change repository configuration unless explicitly
+asked. Ask before any destructive or history-rewriting git operation.
+
+## Language & RTL
+
+This project handles mixed Hebrew/English content. Any user-facing text change must preserve
+RTL/bidi correctness (use `dir="auto"` per block), and Hebrew string edits must be checked for
+encoding issues before reporting results.

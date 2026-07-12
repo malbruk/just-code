@@ -39,7 +39,12 @@ export interface AuthInfo {
 export type AuthStage = 'choose' | 'awaitingCode' | 'awaitingKey' | 'working' | 'error';
 
 /** A model choice surfaced in the UI. `default` means "account default". */
-export type ModelId = 'default' | 'claude-opus-4-8' | 'claude-sonnet-5' | 'claude-haiku-4-5-20251001';
+export type ModelId =
+  | 'default'
+  | 'claude-sonnet-5'
+  | 'claude-fable-5'
+  | 'claude-opus-4-8'
+  | 'claude-haiku-4-5-20251001';
 
 /**
  * Reasoning effort level (SDK `Options.effort`). `default` leaves the model

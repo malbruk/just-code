@@ -30,6 +30,7 @@ import {
   recomputeContextAttachments,
   removeAttachment,
   addAttachment,
+  clearAttachments,
   appendMessage,
   type AppState,
 } from './state.js';

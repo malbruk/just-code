@@ -17,6 +17,7 @@
  */
 import type {
   Attachment,
+  AuthMethod,
   CompletionItem,
   EffortLevel,
   ModelId,
@@ -294,7 +295,7 @@ export class Composer {
     this.root.classList.toggle('mode-plan', state.permissionMode === 'plan');
     this.renderModePill();
     this.renderChips();
-    this.renderUsage(state.usage);
+    this.renderUsage(state.usage, state.authMethod);
     this.renderLimitBanner(state.rateLimitWarning);
     this.renderSendButton();
   }
@@ -751,7 +752,7 @@ export class Composer {
     );
   }
 
-  private renderUsage(usage?: UsageInfo): void {
+  private renderUsage(usage?: UsageInfo, authMethod?: AuthMethod): void {
     if (!usage) {
       this.usageEl.hidden = true;
       return;
@@ -764,7 +765,11 @@ export class Composer {
       parts.push(`${formatTokens(total)} tok`);
       tips.push(`New tokens this turn (input + output): ${total.toLocaleString()}`);
     }
-    if (typeof usage.costUsd === 'number') parts.push(`$${usage.costUsd.toFixed(usage.costUsd < 1 ? 3 : 2)}`);
+    // A dollar figure is misleading on a subscription — the user isn't billed
+    // per-API-cost. Only show it when authenticating with a Console API key.
+    if (typeof usage.costUsd === 'number' && authMethod !== 'subscription') {
+      parts.push(`$${usage.costUsd.toFixed(usage.costUsd < 1 ? 3 : 2)}`);
+    }
     if (usage.contextTokens && usage.contextWindow) {
       const pct = Math.min(100, Math.round((usage.contextTokens / usage.contextWindow) * 100));
       parts.push(`${pct}% ctx`);
@@ -947,6 +952,19 @@ export class Composer {
   private chooseCompletion(index: number): void {
     const item = this.completions[index];
     if (!item || !this.trigger) return;
+
+    // The model command opens the inline model picker directly — mirroring the
+    // "Switch model…" action in the slash-button menu — instead of leaving
+    // `/model ` in the box for the user to submit.
+    if (this.trigger.kind === 'slash' && item.kind === 'command' && item.insert.trim() === '/model') {
+      this.textarea.value = '';
+      this.autoGrow();
+      this.closePopup();
+      this.cb.onDraftChange('');
+      this.openMenu('model');
+      return;
+    }
+
     const value = this.textarea.value;
     const caret = this.textarea.selectionStart ?? value.length;
     const before = value.slice(0, this.trigger.start);
