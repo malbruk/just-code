@@ -1,6 +1,6 @@
 ---
 name: release
-description: Build, verify, and publish the extension to the VS Code marketplace
+description: Release the Just Code VS Code extension — bump the version, verify the tree, build, package the VSIX, and publish to the marketplace. Use whenever the user asks to run a release, cut/ship/publish a release or a new version, push the extension to the marketplace, or says "release", "publish", "ship it", or "/release".
 ---
 1. Confirm working tree is clean (`git status`). Abort if dirty.
 2. Read PUBLISHING.md and follow the numbered steps exactly.
