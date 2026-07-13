@@ -14,8 +14,8 @@ import type {
   UsageInfo,
   WebviewState,
   WebviewToHost,
-} from '../shared/protocol';
-import { MODELS } from '../shared/protocol';
+} from '@just-code/core';
+import { MODELS } from '@just-code/core';
 import { toAccountUsage, warningFromEvent, warningFromWindows } from './usage';
 import { AgentSession } from './session';
 import type { ImageInput, ImageMediaType } from './session';

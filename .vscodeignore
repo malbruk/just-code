@@ -3,6 +3,9 @@
 .vscode-test/**
 src/**
 webview-ui/**
+# packages/core is bundled into dist/ and media/ by esbuild, so its source never
+# ships. (The .ts is already covered by **/*.ts; this also drops its package.json.)
+packages/**
 .gitignore
 .git/**
 esbuild.js

@@ -6,6 +6,9 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "outDir": "dist",
     "rootDir": ".",
+    "paths": {
+      "@just-code/core": ["./packages/core/src/index.ts"]
+    },
     "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
@@ -15,6 +18,6 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src/**/*.ts", "webview-ui/**/*.ts"],
+  "include": ["src/**/*.ts", "webview-ui/**/*.ts", "packages/core/src/**/*.ts"],
   "exclude": ["node_modules", "dist", "media"]
 }

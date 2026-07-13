@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { HostToWebview, WebviewToHost } from '../shared/protocol';
+import type { HostToWebview, WebviewToHost } from '@just-code/core';
 import type { SessionManager } from '../agent/sessionManager';
 import { getNonce } from '../util/nonce';
 import type { Logger } from '../util/logger';

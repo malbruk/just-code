@@ -78,11 +78,18 @@ values, screenshots). Do not assert a cause from assumption — say "I need to s
 Two isolated halves that communicate ONLY through a typed message protocol:
 
 ```
-Extension host (Node, CJS)  ⇄  src/shared/protocol.ts  ⇄  Webview UI (browser, IIFE)
-        src/**                    (frozen contract)            webview-ui/**
+Extension host (Node, CJS)  ⇄  @just-code/core  ⇄  Webview UI (browser, IIFE)
+        src/**              (packages/core, frozen contract)  webview-ui/**
 ```
 
-- **`src/shared/protocol.ts` is the frozen contract.** Imported by BOTH sides. It
+The shared contract now lives in the `packages/core` workspace and is imported by
+both sides as the bare specifier **`@just-code/core`** (resolved via the tsconfig
+`paths` map + esbuild's `tsconfig` option, and by npm workspaces at install time).
+The file itself is `packages/core/src/protocol.ts`, re-exported through
+`packages/core/src/index.ts`. This is the first step of a monorepo migration that
+will let an IntelliJ plugin reuse the same core via a Node sidecar.
+
+- **`@just-code/core` (`packages/core/src/protocol.ts`) is the frozen contract.** Imported by BOTH sides. It
   defines `HostToWebview` / `WebviewToHost` messages and all view-model types
   (`ChatMessage`, `ToolUseView`, `DiffView`, `PermissionRequest`, `Attachment`,
   `AuthInfo`, `WebviewState`, …). It must stay dependency-free (no `vscode`, no DOM).
@@ -201,7 +208,7 @@ Webview (`webview-ui/src/`):
 - `markdown.ts` — small self-contained renderer (HTML-escaped). `icons.ts`, `vscode.ts`.
 
 Relative imports across the two halves use explicit `.js` extensions
-(e.g. `'../../src/shared/protocol.js'`) — required by `moduleResolution: Node16`;
+(e.g. `'../asyncQueue.js'`) — required by `moduleResolution: Node16`;
 esbuild resolves them to the `.ts` sources.
 
 Reference: `docs/SDK-NOTES.md` (verified SDK v0.3.x surface). `scratch/` holds

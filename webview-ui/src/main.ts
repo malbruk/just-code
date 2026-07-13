@@ -13,7 +13,7 @@ import type {
   HostToWebview,
   HistoryEntry,
   PermissionDecision,
-} from '../../src/shared/protocol.js';
+} from '@just-code/core';
 import { clock, chatPlus, search as searchIcon, trash } from './icons.js';
 import { post, getPersisted, setPersisted } from './vscode.js';
 import {

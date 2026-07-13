@@ -14,8 +14,8 @@ import type {
   HostToWebview,
   ToolUseView,
   UsageInfo,
-} from '../shared/protocol';
-import type { PermissionMode, ModelId } from '../shared/protocol';
+} from '@just-code/core';
+import type { PermissionMode, ModelId } from '@just-code/core';
 import { AsyncQueue } from './asyncQueue';
 import { PendingEditManager, isEditTool, editToolPath } from '../tools/diff';
 import { resultToText, toolTitle, truncate } from '../util/text';

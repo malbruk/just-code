@@ -173,7 +173,7 @@ src/
   tools/                  canUseTool permission bridge, diff compute & review
   context/                editor context tracking, @-file / slash completions
   history/                session list & resume via the SDK
-  shared/protocol.ts      typed message contract shared with the webview  ← frozen
+packages/core/src/        @just-code/core: typed message contract (protocol.ts)  ← frozen, shared
 webview-ui/src/           vanilla-TS chat UI (bundled to media/webview.js)
 media/                    webview.css, icons, bundled webview.js
 docs/SDK-NOTES.md         verified notes on the Agent SDK surface

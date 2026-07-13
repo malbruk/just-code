@@ -8,8 +8,8 @@
  * The host owns the data (`requestAccountUsage` → `accountUsage`); this module
  * owns only presentation and the Day/Week toggle.
  */
-import type { AccountUsage, UsageBreakdown, UsageContributor } from '../../src/shared/protocol.js';
-import { MANAGE_USAGE_URL } from '../../src/shared/protocol.js';
+import type { AccountUsage, UsageBreakdown, UsageContributor } from '@just-code/core';
+import { MANAGE_USAGE_URL } from '@just-code/core';
 import { escapeHtml } from './markdown.js';
 import { close as closeIcon } from './icons.js';
 

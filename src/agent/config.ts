@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { CanUseTool, Options, ThinkingConfig } from './sdk';
-import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '../shared/protocol';
+import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '@just-code/core';
 import { installHint, resolveClaudeBinary } from './cli';
 import { SYSTEM_PROMPT_APPEND } from './systemPrompt';
 

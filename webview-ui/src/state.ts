@@ -19,7 +19,7 @@ import type {
   ToolUseView,
   UsageInfo,
   WebviewState,
-} from '../../src/shared/protocol.js';
+} from '@just-code/core';
 
 export interface AppState {
   messages: ChatMessage[];

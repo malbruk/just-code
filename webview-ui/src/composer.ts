@@ -25,8 +25,8 @@ import type {
   RateLimitWarning,
   SlashCommand,
   UsageInfo,
-} from '../../src/shared/protocol.js';
-import { MODELS, EFFORT_LEVELS } from '../../src/shared/protocol.js';
+} from '@just-code/core';
+import { MODELS, EFFORT_LEVELS } from '@just-code/core';
 import type { AppState } from './state.js';
 import { escapeHtml } from './markdown.js';
 import { imagesFromDataTransfer, toImageAttachment } from './image.js';

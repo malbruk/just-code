@@ -1,5 +1,5 @@
 import { loadSdk } from '../agent/sdk';
-import type { Attachment, ChatMessage, ContentBlock, HistoryEntry, ToolUseView } from '../shared/protocol';
+import type { Attachment, ChatMessage, ContentBlock, HistoryEntry, ToolUseView } from '@just-code/core';
 import { getWorkspaceRoot } from '../agent/config';
 import { toolTitle, truncate, resultToText } from '../util/text';
 import type { Logger } from '../util/logger';

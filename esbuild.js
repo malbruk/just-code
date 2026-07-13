@@ -34,6 +34,9 @@ const extensionConfig = {
   // node_modules instead. This means node_modules/@anthropic-ai/** must ship
   // alongside the extension (see .vscodeignore).
   external: ['vscode', '@anthropic-ai/claude-agent-sdk'],
+  // Honor the tsconfig `paths` map so `@just-code/core` resolves to the shared
+  // source in packages/core (matching what tsc uses for type-checking).
+  tsconfig: 'tsconfig.json',
   // Markdown imports (e.g. the appended system prompt) are inlined as raw text.
   loader: { '.md': 'text' },
   sourcemap: !production,
@@ -50,6 +53,8 @@ const webviewConfig = {
   platform: 'browser',
   target: 'es2020',
   outfile: 'media/webview.js',
+  // Same shared-core alias resolution as the host bundle.
+  tsconfig: 'tsconfig.json',
   sourcemap: !production,
   minify: production,
   logLevel: 'silent',

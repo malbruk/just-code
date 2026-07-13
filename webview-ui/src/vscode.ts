@@ -6,7 +6,7 @@
  * plain browser during development) the calls degrade to no-ops instead of
  * throwing.
  */
-import type { WebviewToHost } from '../../src/shared/protocol.js';
+import type { WebviewToHost } from '@just-code/core';
 
 interface VsCodeApi {
   postMessage(msg: unknown): void;

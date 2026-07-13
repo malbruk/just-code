@@ -6,7 +6,7 @@ import type {
   PermissionRequest,
   QuestionOption,
   QuestionSpec,
-} from '../shared/protocol';
+} from '@just-code/core';
 import { toolTitle } from '../util/text';
 import { buildPreviewDiff, isEditTool } from './diff';
 import { getWorkspaceRoot } from '../agent/config';

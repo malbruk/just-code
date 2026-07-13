@@ -11,8 +11,8 @@ import type {
   PermissionRequest,
   QuestionSpec,
   ToolUseView,
-} from '../../src/shared/protocol.js';
-import { OTHER_OPTION_LABEL } from '../../src/shared/protocol.js';
+} from '@just-code/core';
+import { OTHER_OPTION_LABEL } from '@just-code/core';
 import type { AppState } from './state.js';
 import { renderMarkdown, escapeHtml, firstStrongDir } from './markdown.js';
 import {

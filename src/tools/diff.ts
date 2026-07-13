@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { DiffView } from '../shared/protocol';
+import type { DiffView } from '@just-code/core';
 import { relPath } from '../util/text';
 import { getWorkspaceRoot } from '../agent/config';
 

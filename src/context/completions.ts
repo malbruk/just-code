@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { CompletionItem, HostToWebview, SlashCommand } from '../shared/protocol';
+import type { CompletionItem, HostToWebview, SlashCommand } from '@just-code/core';
 import { getWorkspaceRoot } from '../agent/config';
 import { relPath } from '../util/text';
 

@@ -5,8 +5,8 @@ import { showCoexistenceTipOnce } from './agent/coexist';
 import { SessionManager } from './agent/sessionManager';
 import { ChatViewProvider } from './panel/chatViewProvider';
 import { registerToolOutputDocuments } from './tools/toolOutput';
-import { MODELS } from './shared/protocol';
-import type { ModelId, PermissionMode } from './shared/protocol';
+import { MODELS } from '@just-code/core';
+import type { ModelId, PermissionMode } from '@just-code/core';
 
 let logger: Logger | undefined;
 

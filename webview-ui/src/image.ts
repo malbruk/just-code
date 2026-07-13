@@ -11,7 +11,7 @@
  *     exceeds ~1568px anyway — so a raw 4K screenshot is both too big and
  *     wasted bytes. We shrink before upload rather than let the request 400.
  */
-import type { Attachment } from '../../src/shared/protocol.js';
+import type { Attachment } from '@just-code/core';
 
 /** Media types the Messages API accepts for image blocks. */
 const SUPPORTED = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
