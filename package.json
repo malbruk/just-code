@@ -2,7 +2,7 @@
   "name": "just-code",
   "displayName": "Just Code",
   "description": "Just code, nothing else. A community VS Code chat extension on the Claude Agent SDK",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "MaBrukDev",
   "license": "MIT",
   "repository": {

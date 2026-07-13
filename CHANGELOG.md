@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- **Fix a broken webview build.** `main.ts` imported `clearAttachments`, a symbol
+  `state.ts` never exported, so `tsc --noEmit` failed and the webview bundle could not be
+  produced from a clean checkout. Removed the dead import.
+
 ## 1.1.0
 
 - **The extension is now called Just Code.** The rename goes all the way down: the marketplace
