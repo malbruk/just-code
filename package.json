@@ -399,6 +399,7 @@
     "@types/node": "^26.1.0",
     "@types/vscode": "~1.90.0",
     "esbuild": "^0.28.1",
+    "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "zod": "^4.4.3"
   }

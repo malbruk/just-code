@@ -45,9 +45,10 @@ const extensionConfig = {
   plugins: [problemMatcherPlugin],
 };
 
-/** Webview UI: browser IIFE, no externals. */
+/** Webview UI: browser IIFE, no externals. VS Code entry registers the VS Code
+ *  host adapter, then runs the shared UI (see webview-ui/src/bridge.ts). */
 const webviewConfig = {
-  entryPoints: ['webview-ui/src/main.ts'],
+  entryPoints: ['webview-ui/src/main.vscode.ts'],
   bundle: true,
   format: 'iife',
   platform: 'browser',

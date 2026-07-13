@@ -15,7 +15,7 @@ import type {
   PermissionDecision,
 } from '@just-code/core';
 import { clock, chatPlus, search as searchIcon, trash } from './icons.js';
-import { post, getPersisted, setPersisted } from './vscode.js';
+import { post, onHostMessage, getPersisted, setPersisted } from './bridge.js';
 import {
   createInitialState,
   applyInit,
@@ -540,8 +540,8 @@ function render(): void {
 
 // -- message router ---------------------------------------------------------
 
-window.addEventListener('message', (event: MessageEvent) => {
-  const msg = event.data as HostToWebview | undefined;
+onHostMessage((data) => {
+  const msg = data as HostToWebview | undefined;
   if (!msg || typeof msg !== 'object' || typeof (msg as { type?: unknown }).type !== 'string') return;
   try {
     route(msg);

@@ -205,6 +205,17 @@ Host (`src/`):
 - `util/{logger,nonce}.ts`. (`util/text.ts` moved to `@just-code/core`.)
 
 Webview (`webview-ui/src/`):
+- **`bridge.ts` — the IDE-agnostic host bridge.** Defines the `HostBridge`
+  interface (`post` / `onMessage` / `getState` / `setState`) and lazy accessors
+  (`post`, `onHostMessage`, `getPersisted`, `setPersisted`). The shared UI talks
+  ONLY to these — never to `acquireVsCodeApi` directly — so the same bundle can
+  run in a VS Code webview and (later) an IntelliJ JCEF browser.
+- `vscodeBridge.ts` — the VS Code adapter: implements `HostBridge` over
+  `acquireVsCodeApi` + the `window` `message` event, and `setBridge(...)`s itself
+  on import. `main.vscode.ts` is the esbuild entry (`media/webview.js`): it imports
+  the adapter, then `main.ts`. ES module order guarantees the bridge is registered
+  before `main.ts`'s top-level runs. An IntelliJ build adds a parallel
+  `main.intellij.ts` + JCEF adapter; `main.ts` itself stays IDE-neutral.
 - `main.ts` — bootstrap + `HostToWebview` router + global event delegation.
 - `state.ts` — `AppState` + reducers. Note the **pinned vs ephemeral attachment**
   model: the active-editor chip is ephemeral (tracks the editor, `ephemeral:true`);
@@ -215,7 +226,7 @@ Webview (`webview-ui/src/`):
   into the prompt on submit), model/mode pickers, usage, send/stop.
 - `account.ts` — the "Account & usage" dialog (account rows, per-window meters, the
   Day/Week "what's contributing" breakdown). Opened from the `/` menu and the banner.
-- `markdown.ts` — small self-contained renderer (HTML-escaped). `icons.ts`, `vscode.ts`.
+- `markdown.ts` — small self-contained renderer (HTML-escaped). `icons.ts`.
 
 Relative imports across the two halves use explicit `.js` extensions
 (e.g. `'../asyncQueue.js'`) — required by `moduleResolution: Node16`;
