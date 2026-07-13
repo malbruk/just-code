@@ -58,6 +58,11 @@ There is no unit-test runner; verify with the scripts below.
   with a stubbed `vscode` to check `/usage` routing. It pins the config stub to an
   API-key session with no key, so an unknown command can't fall through and bill a
   real turn. Extend it when adding a client-side slash command.
+- `node scratch/sidecar-test.mjs` — end-to-end check of the IntelliJ Node sidecar
+  core (`packages/intellij-plugin/sidecar/src/sidecar.ts`): bundles it with core's
+  `loadSdk` stubbed by a fake SDK, feeds a `submit` protocol message through
+  `Sidecar.handle`, and asserts the real `AgentSession` loop emits the expected
+  `HostToWebview` stream. Run after touching the sidecar or `AgentSession`.
 - Native binary / auth path: `node -e` resolving `@anthropic-ai/claude-agent-sdk-<plat>/claude(.exe)`
   and running `claude auth status --json` (see git history / scratch for the exact snippet).
 
@@ -212,6 +217,20 @@ Host (`src/`):
 - `panel/chatViewProvider.ts` — webview HTML (CSP + nonce), sidebar view + editor
   panel, message bridge fan-out.
 - `util/{logger,nonce}.ts`. (`util/text.ts` moved to `@just-code/core`.)
+
+IntelliJ sidecar (`packages/intellij-plugin/sidecar/src/`) — a Node process that
+runs the same `AgentSession` from core, for the (future) IntelliJ plugin. Talks the
+protocol; no `vscode`.
+- `sidecar.ts` — the testable core: owns one `AgentSession`, routes the
+  session-driving subset of `WebviewToHost` (`submit`/`stop`/`setModel`/
+  `setPermissionMode`/`setThinking`/`newChat`) into it, and injects the core ports
+  (a console `LogSink`, a no-op `EditTracker` — IntelliJ renders diffs Kotlin-side).
+- `main.ts` — the entry point: newline-delimited JSON over stdio (each stdin line is
+  a `WebviewToHost`; each `HostToWebview` is one stdout line). Builds minimal SDK
+  `Options` from `JUST_CODE_CLAUDE_BIN` / `JUST_CODE_CWD` env (the rich `vscode`-coupled
+  settings/auth resolution of `config.ts`/`cli.ts` is a later slice).
+- `build.mjs` — esbuild → `dist/sidecar.mjs` (ESM; `@just-code/core` inlined, the
+  Agent SDK kept EXTERNAL exactly as the host bundle does).
 
 Webview (`webview-ui/src/`):
 - **`bridge.ts` — the IDE-agnostic host bridge.** Defines the `HostBridge`

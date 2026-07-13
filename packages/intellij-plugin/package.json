@@ -1,0 +1,9 @@
+{
+  "name": "@just-code/intellij-plugin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "IntelliJ Platform plugin for Just Code. Hosts the shared webview in a JCEF browser and drives the agent through a Node sidecar built on @just-code/core.",
+  "scripts": {
+    "build:sidecar": "node sidecar/build.mjs"
+  }
+}

@@ -19,6 +19,11 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src/**/*.ts", "webview-ui/**/*.ts", "packages/core/src/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "webview-ui/**/*.ts",
+    "packages/core/src/**/*.ts",
+    "packages/intellij-plugin/sidecar/src/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist", "media"]
 }
