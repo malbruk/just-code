@@ -1,4 +1,4 @@
-import { loadSdk } from '@just-code/core/agent/sdk.js';
+import { loadSdk } from './sdk.js';
 import type {
   McpServerStatus,
   Options,
@@ -7,21 +7,21 @@ import type {
   SDKMessage,
   SDKRateLimitInfo,
   SDKUserMessage,
-} from '@just-code/core/agent/sdk.js';
+} from './sdk.js';
 import type {
   ChatMessage,
   ContentBlock,
+  DiffView,
   HostToWebview,
   ToolUseView,
   UsageInfo,
-} from '@just-code/core';
-import type { PermissionMode, ModelId } from '@just-code/core';
-import { AsyncQueue } from '@just-code/core/agent/asyncQueue.js';
-import { PendingEditManager, isEditTool, editToolPath } from '../tools/diff';
-import { resultToText, toolTitle, truncate } from '@just-code/core/util/text.js';
-import { classifyStreamError } from '@just-code/core/agent/errors.js';
-import type { ClassifiedError } from '@just-code/core/agent/errors.js';
-import type { Logger } from '../util/logger';
+} from '../protocol.js';
+import type { PermissionMode, ModelId } from '../protocol.js';
+import { AsyncQueue } from './asyncQueue.js';
+import { isEditTool, editToolPath } from './editTools.js';
+import { resultToText, toolTitle, truncate } from '../util/text.js';
+import { classifyStreamError } from './errors.js';
+import type { ClassifiedError } from './errors.js';
 
 let msgCounter = 0;
 function nextId(prefix: string): string {
@@ -49,12 +49,33 @@ function buildContent(promptText: string, images: ImageInput[]): SDKUserMessage[
   return blocks;
 }
 
+/**
+ * Minimal logging sink the session needs. Structurally satisfied by the host's
+ * `Logger` (a VS Code `OutputChannel` wrapper); the IntelliJ sidecar backs it
+ * with `console`.
+ */
+export interface LogSink {
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+}
+
+/**
+ * The edit-tracking capability the session needs: snapshot a file before an
+ * edit tool runs, then compute the applied diff once the tool succeeds. The
+ * VS Code host implements this with `PendingEditManager` (inline diff editor +
+ * revert); the IntelliJ sidecar forwards it to the Kotlin side over the protocol.
+ */
+export interface EditTracker {
+  snapshot(toolUseId: string, fsPath: string): void | Promise<void>;
+  finalizeDiff(toolUseId: string): Promise<DiffView | undefined>;
+}
+
 export interface SessionDeps {
   post: (msg: HostToWebview) => void;
   options: Options;
   abortController: AbortController;
-  edits: PendingEditManager;
-  log: Logger;
+  edits: EditTracker;
+  log: LogSink;
   root?: string;
   initialMessages?: ChatMessage[];
   onSessionId?: (id: string) => void;

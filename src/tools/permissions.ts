@@ -8,7 +8,8 @@ import type {
   QuestionSpec,
 } from '@just-code/core';
 import { toolTitle } from '@just-code/core/util/text.js';
-import { buildPreviewDiff, isEditTool } from './diff';
+import { buildPreviewDiff } from './diff';
+import { isEditTool } from '@just-code/core/agent/editTools.js';
 import { getWorkspaceRoot } from '../agent/config';
 import type { Logger } from '../util/logger';
 

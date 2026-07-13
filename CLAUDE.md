@@ -170,6 +170,16 @@ sidecar. **Zero `vscode`, zero DOM.** Host consumers import it via the bare
 specifier `@just-code/core` (the barrel = `protocol.ts`) or the subpath alias
 `@just-code/core/<path>.js` (e.g. `@just-code/core/agent/sdk.js`):
 - `protocol.ts` — the frozen host↔webview message contract (see Architecture).
+- `agent/session.ts` — **the agent brain**: one `AgentSession` owns a long-lived
+  `query()` in streaming-input mode and translates the SDK stream into protocol
+  messages. IDE-agnostic by construction: its two host collaborators are injected
+  as the tiny `LogSink` and `EditTracker` **port interfaces** (defined here), not
+  concrete `vscode` classes. VS Code passes its `Logger` + `PendingEditManager`
+  (which structurally satisfy the ports); the IntelliJ sidecar passes a
+  console-backed logger and a protocol-forwarding edit tracker.
+- `agent/editTools.ts` — pure edit-tool helpers (`isEditTool`, `editToolPath`,
+  `countLineDiff`, `predictAfter`). No I/O; shared by the VS Code diff manager and
+  the sidecar.
 - `agent/sdk.ts` — dynamic ESM loader + SDK type re-exports (`resolution-mode: 'import'`).
 - `agent/asyncQueue.ts` — the streaming-input prompt queue.
 - `agent/errors.ts` — stream-error classification / transcript formatting.
@@ -183,11 +193,10 @@ Host (`src/`):
 - `extension.ts` — activation; registers the view provider + **all** commands
   (every `contributes.commands` entry must be registered here) + context keys + the
   first-run placement tip / `moveView` command.
-- `agent/sessionManager.ts` — the brain: routes every `WebviewToHost` message, owns
-  the current session, builds `WebviewState`, auth, history, new-chat/resume.
-- `agent/session.ts` — one `AgentSession`: runs the `query()` loop, translates the
-  SDK stream into protocol messages. (Still vscode-entangled via `diff`/`Logger`;
-  decoupling it for the sidecar is the next migration slice.)
+- `agent/sessionManager.ts` — the host brain: routes every `WebviewToHost` message,
+  owns the current `AgentSession` (from core), builds `WebviewState`, auth, history,
+  new-chat/resume. Constructs the VS Code `Logger` + `PendingEditManager` and injects
+  them into the session as its `LogSink`/`EditTracker` ports.
 - `agent/config.ts` — reads settings, resolves auth, builds SDK `Options`
   (pins `pathToClaudeCodeExecutable` to the resolved binary).
 - `agent/cli.ts` — resolves & drives the native `claude` binary for auth.

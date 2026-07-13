@@ -17,8 +17,8 @@ import type {
 } from '@just-code/core';
 import { MODELS } from '@just-code/core';
 import { toAccountUsage, warningFromEvent, warningFromWindows } from '@just-code/core/agent/usage.js';
-import { AgentSession } from './session';
-import type { ImageInput, ImageMediaType } from './session';
+import { AgentSession } from '@just-code/core/agent/session.js';
+import type { ImageInput, ImageMediaType } from '@just-code/core/agent/session.js';
 import {
   buildEnv,
   buildOptions,
