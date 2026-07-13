@@ -892,8 +892,10 @@ export class Composer {
     const caret = this.textarea.selectionStart ?? value.length;
     const upto = value.slice(0, caret);
 
-    // Slash command: only when it's the very start of the input.
-    const slash = upto.match(/^\/(\S*)$/);
+    // Slash command: only when it's the very start of the input. Spaces are
+    // allowed in the query so multi-word aliases ("switch model") can be typed;
+    // the host drops the match once a real argument starts, which closes this.
+    const slash = upto.match(/^\/([^\n]*)$/);
     if (slash) {
       this.trigger = { kind: 'slash', start: 0 };
       this.cb.onRequestCompletions('slash', slash[1]);

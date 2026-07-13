@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.1.2
+
+- **Attachments no longer stick to the composer after sending.** Files and images pinned to a
+  prompt stayed in the input once the turn was submitted, and silently rode along on the next
+  one. They are now dropped when the turn goes out. The active-editor chip is untouched — it
+  tracks the editor, not the prompt, so it stays put as before. This completes the fix that
+  1.1.1 only removed the broken import for: `clearAttachments` was called for but never
+  written.
+- **Fable 5 is selectable.** The model existed in the `ModelId` type but was missing from the
+  `MODELS` list that paints the picker, so it never appeared. Fable 5 is now the most capable
+  entry; Opus 4.8 is described as highly capable and autonomous rather than "most capable".
+- **`/switch model` opens the model picker.** Slash commands now carry aliases, and the `/`
+  autocomplete matches them, so the action is reachable by the name it carries in the menu
+  ("Switch model…") rather than only as the terse `/model`. The `/` query accepts spaces to
+  make a multi-word alias typeable; a command followed by a real argument still closes the
+  popup, so Enter submits as before.
+- **No dollar figure on a subscription.** The per-turn cost was shown even when signed in with
+  a Claude subscription, where the user is not billed per API cost. The guard for this existed
+  but was dead: the webview never learned the auth method, because `applyInit` copied every
+  field of the state except `auth.method`. It now shows only under an API key.
+- **The streaming indicator is legible.** The gerund next to the mark was rendered at 0.92em in
+  the muted description colour; it is now normal size in the normal foreground colour.
+
 ## 1.1.1
 
 - **Fix a broken webview build.** `main.ts` imported `clearAttachments`, a symbol

@@ -23,7 +23,12 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/logout', description: 'Sign out of your Claude account' },
   { name: '/mcp', description: 'Manage MCP server connections' },
   { name: '/memory', description: 'Edit the project CLAUDE.md memory file' },
-  { name: '/model', description: 'Switch the active model', argHint: '[model]' },
+  {
+    name: '/model',
+    description: 'Switch the active model',
+    argHint: '[model]',
+    aliases: ['switch model', 'change model'],
+  },
   { name: '/new', description: 'Start a new chat' },
   { name: '/permissions', description: 'Change the tool permission mode', argHint: '[mode]' },
   { name: '/release-notes', description: 'Show what is new in Just Code' },
@@ -50,9 +55,16 @@ export async function handleCompletions(
 }
 
 function slashCompletions(queryText: string): CompletionItem[] {
-  const q = queryText.replace(/^\//, '').toLowerCase();
-  return SLASH_COMMANDS.filter((c) => c.name.slice(1).toLowerCase().includes(q))
-    .sort((a, b) => rank(a.name, q) - rank(b.name, q))
+  // The trailing space is load-bearing and deliberately NOT trimmed. It is what
+  // separates a command the user has finished typing from one still being
+  // matched: `/compact ` stops matching (they're about to type its argument, so
+  // the popup gets out of the way and Enter submits), while `/switch ` still
+  // matches the alias "switch model" and keeps the list open.
+  const q = queryText.replace(/^\//, '').replace(/\s+/g, ' ').toLowerCase();
+  if (q !== '' && q.trim() === '') return [];
+
+  return SLASH_COMMANDS.filter((c) => rank(c, q) < MISS)
+    .sort((a, b) => rank(a, q) - rank(b, q))
     .map((c) => ({
       label: c.argHint ? `${c.name} ${c.argHint}` : c.name,
       insert: `${c.name} `,
@@ -61,9 +73,22 @@ function slashCompletions(queryText: string): CompletionItem[] {
     }));
 }
 
-/** Prefix matches rank above substring matches, then alphabetical. */
-function rank(name: string, q: string): number {
-  return name.slice(1).toLowerCase().startsWith(q) ? 0 : 1;
+const MISS = 9;
+
+/**
+ * The command name ranks above its aliases, and a prefix above a substring;
+ * ties keep the palette's alphabetical order (`Array.sort` is stable). `MISS`
+ * means no match at all — the filter above drops it.
+ */
+function rank(cmd: SlashCommand, q: string): number {
+  const name = cmd.name.slice(1).toLowerCase();
+  if (name.startsWith(q)) return 0;
+
+  const aliases = (cmd.aliases ?? []).map((a) => a.toLowerCase());
+  if (aliases.some((a) => a.startsWith(q))) return 1;
+  if (name.includes(q)) return 2;
+  if (aliases.some((a) => a.includes(q))) return 3;
+  return MISS;
 }
 
 /**

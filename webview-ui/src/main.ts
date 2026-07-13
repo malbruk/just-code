@@ -30,6 +30,7 @@ import {
   recomputeContextAttachments,
   removeAttachment,
   addAttachment,
+  clearAttachments,
   appendMessage,
   type AppState,
 } from './state.js';
@@ -120,6 +121,10 @@ const composer = new Composer({
     // so we render locally and let a later `userMessage` replace ours if sent).
     post({ type: 'submit', text, attachments });
     state.busy = true;
+    // The attachments went out with this turn — drop them so they don't ride
+    // along on the next one. Must happen before `composer.update`, which is
+    // what repaints the chip row.
+    clearAttachments(state);
     composer.update(state);
     transcript.forceScroll();
     setDraft('');

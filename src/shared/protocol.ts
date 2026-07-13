@@ -63,7 +63,8 @@ export interface ModelInfo {
 
 export const MODELS: ModelInfo[] = [
   { id: 'default', label: 'Default', description: 'Account default model' },
-  { id: 'claude-opus-4-8', label: 'Opus 4.8', description: 'Most capable' },
+  { id: 'claude-fable-5', label: 'Fable 5', description: 'Most capable' },
+  { id: 'claude-opus-4-8', label: 'Opus 4.8', description: 'Highly capable and autonomous' },
   { id: 'claude-sonnet-5', label: 'Sonnet 5', description: 'Balanced speed and capability' },
   { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', description: 'Fastest' },
 ];
@@ -317,6 +318,12 @@ export interface SlashCommand {
   description: string;
   /** Optional hint for arguments, e.g. "[model]" or "<path>". */
   argHint?: string;
+  /**
+   * Extra phrases the command matches in the `/` autocomplete, so a user who
+   * knows the action by the label it carries in the slash-button menu
+   * ("Switch model…") finds it without knowing the terse command name.
+   */
+  aliases?: string[];
 }
 
 // ---------------------------------------------------------------------------

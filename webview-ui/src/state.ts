@@ -88,6 +88,7 @@ export function applyInit(state: AppState, ws: WebviewState): void {
   state.usage = ws.usage;
   state.rateLimitWarning = ws.rateLimitWarning;
   state.signedIn = ws.signedIn !== false;
+  state.authMethod = ws.auth?.method;
   state.slashCommands = Array.isArray(ws.slashCommands) ? ws.slashCommands : [];
   state.sessionTitle = ws.sessionTitle;
   state.pendingPermissions = [];
@@ -239,6 +240,18 @@ export function removeAttachment(state: AppState, index: number): void {
     // Ephemeral editor-context chip: remember the removal so it doesn't re-add.
     state.removedAttachmentLabels.add(a.label);
   }
+  recomputeContextAttachments(state);
+}
+
+/**
+ * Drop every pinned attachment — called once a turn is sent, since the files
+ * and images belong to that prompt and must not silently ride along on the
+ * next one. The ephemeral active-editor chip is deliberately left alone: it
+ * tracks the editor rather than the prompt, so it is rebuilt by the recompute
+ * below and stays put, exactly as it does between turns.
+ */
+export function clearAttachments(state: AppState): void {
+  state.pinned = [];
   recomputeContextAttachments(state);
 }
 
