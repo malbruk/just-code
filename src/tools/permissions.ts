@@ -1,4 +1,4 @@
-import type { CanUseTool, PermissionResult, PermissionUpdate } from '../agent/sdk';
+import type { CanUseTool, PermissionResult, PermissionUpdate } from '@just-code/core/agent/sdk.js';
 import type {
   HostToWebview,
   PermissionDecision,
@@ -7,7 +7,7 @@ import type {
   QuestionOption,
   QuestionSpec,
 } from '@just-code/core';
-import { toolTitle } from '../util/text';
+import { toolTitle } from '@just-code/core/util/text.js';
 import { buildPreviewDiff, isEditTool } from './diff';
 import { getWorkspaceRoot } from '../agent/config';
 import type { Logger } from '../util/logger';

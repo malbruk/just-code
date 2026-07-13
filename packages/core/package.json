@@ -5,6 +5,7 @@
   "description": "IDE-agnostic shared layer for Just Code (protocol contract + agent core). Consumed by the VS Code extension, the shared webview UI, and the IntelliJ Node sidecar.",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./*": "./src/*"
   }
 }

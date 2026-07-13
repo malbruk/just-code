@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { Attachment, EditorContext, HostToWebview } from '@just-code/core';
 import { getWorkspaceRoot } from '../agent/config';
-import { relPath } from '../util/text';
+import { relPath } from '@just-code/core/util/text.js';
 
 /**
  * Tracks the active editor, selection, and open files, pushing a debounced

@@ -40,7 +40,7 @@ There is no unit-test runner; verify with the scripts below.
   `dist/extension.js`, calls `activate()`, and asserts every command declared in
   `package.json` is registered and the `just-code.chat` view provider registers.
   Run this after touching activation, commands, or the manifest.
-- `node scratch/usage-logic-test.mjs` — bundles `src/agent/usage.ts`, issues a live
+- `node scratch/usage-logic-test.mjs` — bundles `packages/core/src/agent/usage.ts`, issues a live
   `/usage` control request, and pins the window mapping + banner thresholds.
 - `node scratch/account-dialog-test.mjs` — renders `webview-ui/src/account.ts` against
   a DOM shim: markup, escaping, the Day/Week toggle, the API-key and error states.
@@ -107,7 +107,7 @@ will let an IntelliJ plugin reuse the same core via a Node sidecar.
 
 - The SDK is **ESM-only** and is kept **external** from the host bundle on purpose
   (`external: ['@anthropic-ai/claude-agent-sdk']` in `esbuild.js`). It is loaded via
-  a dynamic `import()` in `src/agent/sdk.ts`. **Do not bundle it.** Consequence:
+  a dynamic `import()` in `packages/core/src/agent/sdk.ts`. **Do not bundle it.** Consequence:
   `node_modules/@anthropic-ai/{claude-agent-sdk,sdk}` and `zod` ship inside the `.vsix`
   (see `.vscodeignore`).
 - The **native `claude` runtime is NOT bundled.** The SDK's per-platform packages
@@ -131,7 +131,7 @@ will let an IntelliJ plugin reuse the same core via a Node sidecar.
 - `.vscodeignore` is **not** last-match-wins like `.gitignore`: an `exclude` line placed
   after a `!negation` will not override it. Narrow the negation itself.
 - **Streaming-input mode**: one long-lived `query()` per conversation, fed by a
-  push-based async iterable (`src/agent/asyncQueue.ts`). This is what enables
+  push-based async iterable (`packages/core/src/agent/asyncQueue.ts`). This is what enables
   `q.interrupt()`, `q.setModel()`, `q.setPermissionMode()`. The consume loop maps
   `SDKMessage`s → protocol messages (see `docs/SDK-NOTES.md` for exact message shapes).
 - Options use the `claude_code` presets for `systemPrompt` (plus an `append` of
@@ -164,6 +164,21 @@ Controlled by `just-code.authMethod` (`subscription` default, or `apiKey`):
 
 ## Important files
 
+Core (`packages/core/src/`) — the IDE-agnostic `@just-code/core` package,
+consumed by the VS Code host, the shared webview, and (later) the IntelliJ Node
+sidecar. **Zero `vscode`, zero DOM.** Host consumers import it via the bare
+specifier `@just-code/core` (the barrel = `protocol.ts`) or the subpath alias
+`@just-code/core/<path>.js` (e.g. `@just-code/core/agent/sdk.js`):
+- `protocol.ts` — the frozen host↔webview message contract (see Architecture).
+- `agent/sdk.ts` — dynamic ESM loader + SDK type re-exports (`resolution-mode: 'import'`).
+- `agent/asyncQueue.ts` — the streaming-input prompt queue.
+- `agent/errors.ts` — stream-error classification / transcript formatting.
+- `agent/usage.ts` — pure mapping of the runtime's structured `/usage` control request
+  (`AgentSession.getUsage()`, an **experimental** SDK API) into the account dialog's
+  view model, plus the plan-limit banner rules. Copy and the 70% display floor mirror
+  the official CLI. Nothing here reads credentials — the binary owns the OAuth token.
+- `util/text.ts` — pure path/format string helpers (`relPath`, `toolTitle`, …).
+
 Host (`src/`):
 - `extension.ts` — activation; registers the view provider + **all** commands
   (every `contributes.commands` entry must be registered here) + context keys + the
@@ -171,16 +186,11 @@ Host (`src/`):
 - `agent/sessionManager.ts` — the brain: routes every `WebviewToHost` message, owns
   the current session, builds `WebviewState`, auth, history, new-chat/resume.
 - `agent/session.ts` — one `AgentSession`: runs the `query()` loop, translates the
-  SDK stream into protocol messages.
-- `agent/sdk.ts` — dynamic ESM loader + type re-exports (`resolution-mode: 'import'`).
+  SDK stream into protocol messages. (Still vscode-entangled via `diff`/`Logger`;
+  decoupling it for the sidecar is the next migration slice.)
 - `agent/config.ts` — reads settings, resolves auth, builds SDK `Options`
   (pins `pathToClaudeCodeExecutable` to the resolved binary).
 - `agent/cli.ts` — resolves & drives the native `claude` binary for auth.
-- `agent/usage.ts` — pure mapping of the runtime's structured `/usage` control request
-  (`AgentSession.getUsage()`, an **experimental** SDK API) into the account dialog's
-  view model, plus the plan-limit banner rules. Copy and the 70% display floor mirror
-  the official CLI. Nothing here reads credentials — the binary owns the OAuth token.
-- `agent/asyncQueue.ts` — the streaming-input prompt queue.
 - `tools/permissions.ts` — `canUseTool` bridge → `permissionRequest` / awaits decision.
 - `tools/diff.ts` — pre-edit snapshots, applied-diff compute, accept/reject, native
   diff editor, `just-code.hasPendingEdits` context key.
@@ -192,7 +202,7 @@ Host (`src/`):
   CLI's `--resume`. Irreversible — `SessionManager.deleteSession` confirms with a modal first.
 - `panel/chatViewProvider.ts` — webview HTML (CSP + nonce), sidebar view + editor
   panel, message bridge fan-out.
-- `util/{logger,nonce,text}.ts`.
+- `util/{logger,nonce}.ts`. (`util/text.ts` moved to `@just-code/core`.)
 
 Webview (`webview-ui/src/`):
 - `main.ts` — bootstrap + `HostToWebview` router + global event delegation.

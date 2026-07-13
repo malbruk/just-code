@@ -7,7 +7,8 @@
     "outDir": "dist",
     "rootDir": ".",
     "paths": {
-      "@just-code/core": ["./packages/core/src/index.ts"]
+      "@just-code/core": ["./packages/core/src/index.ts"],
+      "@just-code/core/*": ["./packages/core/src/*"]
     },
     "sourceMap": true,
     "strict": true,

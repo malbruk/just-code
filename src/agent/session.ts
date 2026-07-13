@@ -1,4 +1,4 @@
-import { loadSdk } from './sdk';
+import { loadSdk } from '@just-code/core/agent/sdk.js';
 import type {
   McpServerStatus,
   Options,
@@ -7,7 +7,7 @@ import type {
   SDKMessage,
   SDKRateLimitInfo,
   SDKUserMessage,
-} from './sdk';
+} from '@just-code/core/agent/sdk.js';
 import type {
   ChatMessage,
   ContentBlock,
@@ -16,11 +16,11 @@ import type {
   UsageInfo,
 } from '@just-code/core';
 import type { PermissionMode, ModelId } from '@just-code/core';
-import { AsyncQueue } from './asyncQueue';
+import { AsyncQueue } from '@just-code/core/agent/asyncQueue.js';
 import { PendingEditManager, isEditTool, editToolPath } from '../tools/diff';
-import { resultToText, toolTitle, truncate } from '../util/text';
-import { classifyStreamError } from './errors';
-import type { ClassifiedError } from './errors';
+import { resultToText, toolTitle, truncate } from '@just-code/core/util/text.js';
+import { classifyStreamError } from '@just-code/core/agent/errors.js';
+import type { ClassifiedError } from '@just-code/core/agent/errors.js';
 import type { Logger } from '../util/logger';
 
 let msgCounter = 0;

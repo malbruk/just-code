@@ -1,7 +1,7 @@
-import { loadSdk } from '../agent/sdk';
+import { loadSdk } from '@just-code/core/agent/sdk.js';
 import type { Attachment, ChatMessage, ContentBlock, HistoryEntry, ToolUseView } from '@just-code/core';
 import { getWorkspaceRoot } from '../agent/config';
-import { toolTitle, truncate, resultToText } from '../util/text';
+import { toolTitle, truncate, resultToText } from '@just-code/core/util/text.js';
 import type { Logger } from '../util/logger';
 
 let idCounter = 0;

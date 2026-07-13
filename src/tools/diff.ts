@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { DiffView } from '@just-code/core';
-import { relPath } from '../util/text';
+import { relPath } from '@just-code/core/util/text.js';
 import { getWorkspaceRoot } from '../agent/config';
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);

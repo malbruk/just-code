@@ -16,7 +16,7 @@ import type {
   WebviewToHost,
 } from '@just-code/core';
 import { MODELS } from '@just-code/core';
-import { toAccountUsage, warningFromEvent, warningFromWindows } from './usage';
+import { toAccountUsage, warningFromEvent, warningFromWindows } from '@just-code/core/agent/usage.js';
 import { AgentSession } from './session';
 import type { ImageInput, ImageMediaType } from './session';
 import {
@@ -37,8 +37,8 @@ import {
   startLogin,
   type LoginSession,
 } from './cli';
-import { CONCURRENCY_HINT_SHORT, formatForTranscript } from './errors';
-import type { ClassifiedError } from './errors';
+import { CONCURRENCY_HINT_SHORT, formatForTranscript } from '@just-code/core/agent/errors.js';
+import type { ClassifiedError } from '@just-code/core/agent/errors.js';
 import { officialExtensionInstalled } from './coexist';
 import { PermissionBridge } from '../tools/permissions';
 import { PendingEditManager } from '../tools/diff';

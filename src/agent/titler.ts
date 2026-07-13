@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { loadSdk } from './sdk';
+import { loadSdk } from '@just-code/core/agent/sdk.js';
 import type { Logger } from '../util/logger';
 
 /** Cheapest model — a title is a one-sentence summarization job. */

@@ -19,7 +19,7 @@ import type {
   UsageBreakdown,
   UsageContributor,
   UsageWindow,
-} from '@just-code/core';
+} from '../protocol.js';
 
 /**
  * Claude Code only surfaces a limit warning once a window is 70% consumed —

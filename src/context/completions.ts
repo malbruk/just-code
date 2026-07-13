@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { CompletionItem, HostToWebview, SlashCommand } from '@just-code/core';
 import { getWorkspaceRoot } from '../agent/config';
-import { relPath } from '../util/text';
+import { relPath } from '@just-code/core/util/text.js';
 
 /**
  * Static slash-command palette surfaced in the composer + `WebviewState`.

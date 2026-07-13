@@ -1,4 +1,4 @@
-import { loadSdk } from '../agent/sdk';
+import { loadSdk } from '@just-code/core/agent/sdk.js';
 import type { Logger } from '../util/logger';
 
 const POLL_ATTEMPTS = 6;
