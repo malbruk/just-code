@@ -272,6 +272,19 @@ export interface QuestionSpec {
  */
 export const OTHER_OPTION_LABEL = 'Other';
 
+/**
+ * The extension's in-process MCP server ("instruction profiles"): the model
+ * calls its `load_instructions` tool to pull an extended instruction prompt
+ * into the conversation on demand, instead of every conversation paying for
+ * those instructions in the system prompt. The names are shared here because
+ * the host registers the server (`src/agent/instructions.ts`), the permission
+ * bridge auto-allows the tool, and the webview special-cases its card.
+ */
+export const INSTRUCTIONS_SERVER_NAME = 'just-code';
+export const LOAD_INSTRUCTIONS_TOOL_NAME = 'load_instructions';
+/** The full tool name as it appears in the SDK stream (`mcp__<server>__<tool>`). */
+export const LOAD_INSTRUCTIONS_TOOL = `mcp__${INSTRUCTIONS_SERVER_NAME}__${LOAD_INSTRUCTIONS_TOOL_NAME}`;
+
 /** A pending permission request awaiting user decision. */
 export interface PermissionRequest {
   id: string;

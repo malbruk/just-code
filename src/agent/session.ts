@@ -16,6 +16,7 @@ import type {
   UsageInfo,
 } from '@just-code/core';
 import type { PermissionMode, ModelId } from '@just-code/core';
+import { LOAD_INSTRUCTIONS_TOOL } from '@just-code/core';
 import { AsyncQueue } from '@just-code/core/agent/asyncQueue.js';
 import { PendingEditManager, isEditTool, editToolPath } from '../tools/diff';
 import { resultToText, toolTitle, truncate } from '@just-code/core/util/text.js';
@@ -544,9 +545,19 @@ export class AgentSession {
 }
 
 function isReadOnly(name: string): boolean {
-  return ['Read', 'Grep', 'Glob', 'LS', 'NotebookRead', 'WebFetch', 'WebSearch', 'TodoWrite', 'BashOutput', 'Task'].includes(
-    name,
-  );
+  return [
+    'Read',
+    'Grep',
+    'Glob',
+    'LS',
+    'NotebookRead',
+    'WebFetch',
+    'WebSearch',
+    'TodoWrite',
+    'BashOutput',
+    'Task',
+    LOAD_INSTRUCTIONS_TOOL,
+  ].includes(name);
 }
 
 function usageFromResult(

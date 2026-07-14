@@ -12,7 +12,7 @@ import type {
   QuestionSpec,
   ToolUseView,
 } from '@just-code/core';
-import { OTHER_OPTION_LABEL } from '@just-code/core';
+import { LOAD_INSTRUCTIONS_TOOL, OTHER_OPTION_LABEL } from '@just-code/core';
 import type { AppState } from './state.js';
 import { renderMarkdown, escapeHtml, firstStrongDir } from './markdown.js';
 import {
@@ -427,6 +427,11 @@ export class Transcript {
     card.setAttribute('data-tool-id', tool.id);
 
     const isBash = /^(bash|shell)$/i.test(tool.name);
+    // The instruction-profile loader gets a minimal card: friendly name instead
+    // of the raw mcp__… identifier, and no input/result body — the returned
+    // prompt text is context for the model, not something to show the user.
+    const isLoadInstructions = tool.name === LOAD_INSTRUCTIONS_TOOL;
+    const displayName = isLoadInstructions ? 'Instructions' : tool.name;
     const command = typeof tool.input?.command === 'string' ? (tool.input.command as string) : '';
     const summary = toolSummary(tool);
     // Bash/edit steps show their command/diff inline by default, like the native UI.
@@ -436,7 +441,7 @@ export class Transcript {
     header.type = 'button';
     header.className = 'tool-header';
     header.innerHTML =
-      `<span class="tool-name">${escapeHtml(tool.name)}</span>` +
+      `<span class="tool-name">${escapeHtml(displayName)}</span>` +
       (summary ? `<span class="tool-title">${escapeHtml(summary)}</span>` : '') +
       `<span class="tool-caret">${chevron()}</span>`;
     card.appendChild(header);
@@ -468,7 +473,7 @@ export class Transcript {
 
       // AskUserQuestion was answered in its own card; the raw questions/options
       // JSON adds nothing, so the card shows only the answer (its result text).
-      if (!tool.diff && tool.name !== 'AskUserQuestion') {
+      if (!tool.diff && tool.name !== 'AskUserQuestion' && !isLoadInstructions) {
         const inputStr = safeStringify(tool.input);
         if (inputStr && inputStr !== '{}') {
           const inputEl = document.createElement('pre');
@@ -896,6 +901,7 @@ function formatDuration(ms: number): string {
 
 /** Pick a glyph for a tool row from its name, native-extension style. */
 function toolIcon(name: string): string {
+  if (name === LOAD_INSTRUCTIONS_TOOL) return listIcon();
   const n = name.toLowerCase();
   if (n === 'bash' || n.includes('terminal') || n.includes('shell')) return terminalIcon();
   if (n === 'read' || n === 'notebookread') return fileIcon();

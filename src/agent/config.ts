@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import type { CanUseTool, Options, ThinkingConfig } from '@just-code/core/agent/sdk.js';
+import type { CanUseTool, McpSdkServerConfigWithInstance, Options, ThinkingConfig } from '@just-code/core/agent/sdk.js';
 import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '@just-code/core';
+import { INSTRUCTIONS_SERVER_NAME } from '@just-code/core';
 import { installHint, resolveClaudeBinary } from './cli';
 import { SYSTEM_PROMPT_APPEND } from './systemPrompt';
 
@@ -97,6 +98,8 @@ export interface BuildOptionsArgs {
   /** Live fallback-model toggle (overrides `config.autoModelFallback`). */
   autoModelFallback: boolean;
   canUseTool: CanUseTool;
+  /** The per-session instruction-profiles server (see `instructions.ts`). */
+  instructionsServer: McpSdkServerConfigWithInstance;
   abortController: AbortController;
   resume?: string;
   log: (data: string) => void;
@@ -131,7 +134,7 @@ export function buildEnv(authMethod: AuthMethod, apiKey?: string): Record<string
 
 /** Assemble the SDK `Options` for a `query()` call. */
 export function buildOptions(args: BuildOptionsArgs): Options {
-  const { config, authMethod, apiKey, model, permissionMode, effort, extendedThinking, autoModelFallback, canUseTool, abortController, resume, log } = args;
+  const { config, authMethod, apiKey, model, permissionMode, effort, extendedThinking, autoModelFallback, canUseTool, instructionsServer, abortController, resume, log } = args;
   const root = getWorkspaceRoot();
   const env = buildEnv(authMethod, apiKey);
 
@@ -141,6 +144,10 @@ export function buildOptions(args: BuildOptionsArgs): Options {
       ? { type: 'preset', preset: 'claude_code', append: SYSTEM_PROMPT_APPEND }
       : { type: 'preset', preset: 'claude_code' },
     tools: { type: 'preset', preset: 'claude_code' },
+    // The extension's own in-process server (on-demand instruction profiles).
+    // This map is separate from the `.mcp.json` / settings-file servers, which
+    // arrive via `settingSources` below — it does not override them.
+    mcpServers: { [INSTRUCTIONS_SERVER_NAME]: instructionsServer },
     // All three sources, not just 'project'. `user` (~/.claude/settings.json)
     // is where globally-configured MCP servers live — with only `project` they
     // are silently missing. `local` (.claude/settings.local.json) holds the

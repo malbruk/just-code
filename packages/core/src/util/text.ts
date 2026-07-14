@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { LOAD_INSTRUCTIONS_TOOL } from '../protocol.js';
 
 /** Truncate text for display, appending an ellipsis note when clipped. */
 export function truncate(text: string, max = 4000): string {
@@ -104,6 +105,10 @@ export function toolTitle(name: string, input: Record<string, unknown>, root?: s
       const text = str(first, 'question') ?? '';
       const more = questions.length - 1;
       return `Ask: ${oneLine(text, 60)}${more > 0 ? ` (+${more} more)` : ''}`;
+    }
+    case LOAD_INSTRUCTIONS_TOOL: {
+      const profile = str(input, 'profile');
+      return profile ? `Loading \`${profile}\`` : 'Loading instructions';
     }
     case 'Skill': {
       const skill = str(input, 'skill');
