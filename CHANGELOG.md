@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.3
+
+- **Critical fix: starting a new chat could silently revert the agent's edits on disk.**
+  Every applied edit was tracked as "pending" with a snapshot of the file taken before the
+  edit — but the UI offered no way to accept it, so every edit of a session stayed pending
+  forever, and New Chat, `/clear`, `/new`, and deleting the open conversation all silently
+  wrote those stale snapshots back over the working tree. Files could revert to
+  conversation-start content, losing later edits and even changes already committed to git
+  in the meantime (the commits themselves are safe — `git checkout <file>` or `git stash`
+  recovers them; only the working tree was overwritten). A file edited several times in one
+  session ended up *half*-reverted, which looked like a refactor that partially
+  "un-happened". The bug has existed since the first release, so updating is strongly
+  recommended. Abandoning a conversation now never touches the disk; a file is only ever
+  reverted by an explicit user action. Full write-up: `docs/EDIT-LOSS-DIAGNOSIS.md`.
+- **Reverts are now guarded.** Undo restores a file only while the disk still holds exactly
+  what the edit produced; if you or a later turn changed the file since, the revert is
+  skipped with a visible warning instead of destroying the newer content. Undoing several
+  edits to one file unwinds newest-first back to the true original, undoing a `Write` that
+  created a file deletes the file again, and a failed or permission-denied edit no longer
+  leaves a stale snapshot behind waiting to be "restored". Snapshots are also taken before
+  the edit can run, so the recorded diff can no longer race the write.
+- **Keep / Undo buttons on edit cards.** Pending diffs in the transcript now carry their
+  accept/revert controls; "Accept all edits" / "Reject all edits" stay available in the
+  command palette.
+
 ## 1.1.2
 
 - **Attachments no longer stick to the composer after sending.** Files and images pinned to a
