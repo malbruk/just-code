@@ -885,6 +885,13 @@ code {
   margin-left: 6px;
 }
 
+.diff-actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--cc-border);
+}
+
 .diff-body {
   font-family: var(--vscode-editor-font-family, monospace);
   font-size: 0.86em;

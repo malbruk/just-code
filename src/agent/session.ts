@@ -318,7 +318,7 @@ export class AgentSession {
         this.handleStreamEvent(msg);
         return;
       case 'assistant':
-        this.handleAssistant(msg);
+        await this.handleAssistant(msg);
         return;
       case 'user':
         await this.handleUser(msg);
@@ -342,6 +342,8 @@ export class AgentSession {
       const denied = msg as unknown as { tool_use_id?: string; tool_name?: string };
       if (denied.tool_use_id) {
         this.markToolStatus(denied.tool_use_id, 'denied', 'Permission denied');
+        // A denied edit never ran; its snapshot must not linger (see handleUser).
+        this.deps.edits.discard(denied.tool_use_id);
       }
     }
   }
@@ -405,7 +407,7 @@ export class AgentSession {
     this.deps.post({ type: 'streamDelta', messageId: message.id, blockType, delta });
   }
 
-  private handleAssistant(msg: Extract<SDKMessage, { type: 'assistant' }>): void {
+  private async handleAssistant(msg: Extract<SDKMessage, { type: 'assistant' }>): Promise<void> {
     const message = this.ensureActiveMessage();
     const beta = msg.message as unknown as {
       content?: Array<Record<string, unknown>>;
@@ -463,10 +465,13 @@ export class AgentSession {
         this.toolViews.set(id, { messageId: message.id, view });
         message.blocks.push({ type: 'tool_use', toolUse: view });
 
-        // Snapshot pre-edit content so we can build the applied diff & allow revert.
+        // Snapshot pre-edit content so we can build the applied diff & allow
+        // revert. Awaited: an unordered (`void`) read can race the native
+        // binary's write and capture post-edit content as "before". The
+        // permission bridge also snapshots pre-approval; this is idempotent.
         if (isEditTool(name)) {
           const fsPath = editToolPath(input);
-          if (fsPath) void this.deps.edits.snapshot(id, fsPath);
+          if (fsPath) await this.deps.edits.snapshot(id, fsPath);
         }
         this.deps.post({ type: 'toolUpdate', messageId: message.id, tool: view });
       }
@@ -489,9 +494,15 @@ export class AgentSession {
       entry.view.status = isError ? 'error' : 'success';
       entry.view.resultText = text;
 
-      if (!isError && isEditTool(entry.view.name)) {
-        const diff = await this.deps.edits.finalizeDiff(toolUseId);
-        if (diff) entry.view.diff = diff;
+      if (isEditTool(entry.view.name)) {
+        if (isError) {
+          // The edit never changed the file — drop its snapshot so a later
+          // revert can't write this stale pre-edit content over newer work.
+          this.deps.edits.discard(toolUseId);
+        } else {
+          const diff = await this.deps.edits.finalizeDiff(toolUseId);
+          if (diff) entry.view.diff = diff;
+        }
       }
       this.deps.post({ type: 'toolUpdate', messageId: entry.messageId, tool: entry.view });
     }

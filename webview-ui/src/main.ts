@@ -32,6 +32,7 @@ import {
   addAttachment,
   clearAttachments,
   appendMessage,
+  settleEdit,
   type AppState,
 } from './state.js';
 import { Transcript, toolOutput } from './render.js';
@@ -471,6 +472,18 @@ document.addEventListener('click', (e) => {
     const lineAttr = openEl.getAttribute('data-line');
     const line = lineAttr ? Number(lineAttr) : undefined;
     if (path) post({ type: 'openFile', path, line });
+    return;
+  }
+
+  const editBtn = target.closest('[data-edit-decision]');
+  if (editBtn) {
+    const toolUseId = editBtn.getAttribute('data-tool-id') ?? '';
+    if (toolUseId) {
+      const accept = editBtn.getAttribute('data-edit-decision') === 'accept';
+      post({ type: 'editDecision', toolUseId, accept });
+      settleEdit(state, toolUseId);
+      render();
+    }
     return;
   }
 

@@ -197,6 +197,18 @@ export function resolvePermission(state: AppState, id: string): void {
   state.pendingPermissions = state.pendingPermissions.filter((p) => p.id !== id);
 }
 
+/** Clear the pending flag on an edit's diff after the user chose Keep/Undo. */
+export function settleEdit(state: AppState, toolUseId: string): void {
+  for (const msg of state.messages) {
+    for (const block of msg.blocks) {
+      if (block.type === 'tool_use' && block.toolUse.id === toolUseId && block.toolUse.diff) {
+        block.toolUse.diff.pending = false;
+        return;
+      }
+    }
+  }
+}
+
 /**
  * Rebuild the displayed chip list: an *ephemeral* chip for the current editor
  * context (active file, or selection if any) followed by the *pinned* explicit

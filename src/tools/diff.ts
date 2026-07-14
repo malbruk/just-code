@@ -113,7 +113,19 @@ interface PendingEdit {
   fsPath: string;
   /** Content before the tool touched the file. */
   before: string;
+  /** False when the file did not exist before the edit (a `Write` creating it). */
+  existedBefore: boolean;
+  /**
+   * Content the edit actually produced, read back when the tool_result arrives.
+   * Undefined until then — an edit that never completed must not be "restored".
+   */
+  after?: string;
+  /** Monotonic order of snapshots, so reverts can unwind newest-first. */
+  seq: number;
 }
+
+/** What `restore` did for one pending edit. */
+type RestoreOutcome = 'restored' | 'noop' | 'skipped';
 
 /**
  * Tracks edits that have been written to disk by the agent but not yet
@@ -126,6 +138,7 @@ export class PendingEditManager implements vscode.Disposable {
   private readonly pending = new Map<string, PendingEdit>();
   private readonly snapshotContent = new Map<string, string>();
   private readonly disposables: vscode.Disposable[] = [];
+  private seq = 0;
 
   constructor() {
     const provider: vscode.TextDocumentContentProvider = {
@@ -139,19 +152,28 @@ export class PendingEditManager implements vscode.Disposable {
   /** Snapshot the current on-disk content before an edit executes. */
   async snapshot(toolUseId: string, fsPath: string): Promise<void> {
     if (this.pending.has(toolUseId)) return;
-    const before = await readFileIfExists(fsPath);
-    this.pending.set(toolUseId, { toolUseId, fsPath, before });
+    let before = '';
+    let existedBefore = true;
+    try {
+      const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(fsPath));
+      before = Buffer.from(bytes).toString('utf8');
+    } catch {
+      existedBefore = false;
+    }
+    this.pending.set(toolUseId, { toolUseId, fsPath, before, existedBefore, seq: this.seq++ });
     this.updateContextKey();
   }
 
   /**
    * After a successful edit tool_result, compute the applied DiffView from the
-   * snapshot and the new on-disk content.
+   * snapshot and the new on-disk content. Also records the post-edit content —
+   * a revert is only ever allowed while the disk still holds exactly that.
    */
   async finalizeDiff(toolUseId: string): Promise<DiffView | undefined> {
     const entry = this.pending.get(toolUseId);
     if (!entry) return undefined;
     const after = await readFileIfExists(entry.fsPath);
+    entry.after = after;
     const { additions, deletions } = countLineDiff(entry.before, after);
     return {
       path: relPath(getWorkspaceRoot(), entry.fsPath),
@@ -177,6 +199,16 @@ export class PendingEditManager implements vscode.Disposable {
 
   /** Accept a single pending edit — just drop the snapshot. */
   accept(toolUseId: string): void {
+    this.discard(toolUseId);
+  }
+
+  /**
+   * Drop a snapshot without touching the disk — for edits that failed or were
+   * denied and so never changed the file. Keeping such an entry around is
+   * dangerous: a later revert would write its stale snapshot over every edit
+   * made to the file since.
+   */
+  discard(toolUseId: string): void {
     this.pending.delete(toolUseId);
     this.updateContextKey();
   }
@@ -190,26 +222,69 @@ export class PendingEditManager implements vscode.Disposable {
   async reject(toolUseId: string): Promise<void> {
     const entry = this.pending.get(toolUseId);
     if (!entry) return;
-    await this.restore(entry);
+    const outcome = await this.restore(entry);
     this.pending.delete(toolUseId);
     this.updateContextKey();
+    if (outcome === 'skipped') this.warnSkipped([entry.fsPath]);
   }
 
   async rejectAll(): Promise<void> {
-    for (const entry of this.pending.values()) {
-      await this.restore(entry);
+    // Newest-first: a file edited several times unwinds edit by edit — each
+    // restore re-establishes the `after` of the edit before it — and ends at
+    // the true original. (The old oldest-first order ended at the *last*
+    // edit's `before`, i.e. a half-reverted file.)
+    const entries = [...this.pending.values()].sort((a, b) => b.seq - a.seq);
+    const skipped: string[] = [];
+    for (const entry of entries) {
+      if ((await this.restore(entry)) === 'skipped') skipped.push(entry.fsPath);
     }
     this.pending.clear();
     this.updateContextKey();
+    if (skipped.length > 0) this.warnSkipped(skipped);
   }
 
-  private async restore(entry: PendingEdit): Promise<void> {
+  /**
+   * Undo one edit, but only when it is provably safe: the disk must still hold
+   * exactly what this edit produced. Anything else — the user typed, another
+   * turn edited, a git operation ran, the edit never completed — means the
+   * snapshot is stale, and writing it would destroy newer work. That blind
+   * write was the root cause of the dogfooding edit-loss bug
+   * (docs/EDIT-LOSS-DIAGNOSIS.md); never reintroduce it.
+   */
+  private async restore(entry: PendingEdit): Promise<RestoreOutcome> {
     const uri = vscode.Uri.file(entry.fsPath);
+    let current: string | undefined;
     try {
-      await vscode.workspace.fs.writeFile(uri, Buffer.from(entry.before, 'utf8'));
+      current = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
     } catch {
-      // File may have been deleted; ignore.
+      current = undefined; // file missing
     }
+
+    const beforeState = entry.existedBefore ? entry.before : undefined;
+    if (current === beforeState) return 'noop';
+    if (entry.after === undefined || current !== entry.after) return 'skipped';
+
+    try {
+      if (entry.existedBefore) {
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(entry.before, 'utf8'));
+      } else {
+        // The edit created the file; undoing it removes the file again.
+        await vscode.workspace.fs.delete(uri);
+      }
+      return 'restored';
+    } catch {
+      return 'skipped';
+    }
+  }
+
+  private warnSkipped(fsPaths: string[]): void {
+    const root = getWorkspaceRoot();
+    const names = [...new Set(fsPaths)].map((p) => relPath(root, p));
+    void vscode.window.showWarningMessage(
+      `Just Code: ${names.length === 1 ? `${names[0]} has` : `${names.length} files have`} changed since the edit and ${
+        names.length === 1 ? 'was' : 'were'
+      } not reverted: ${names.join(', ')}`,
+    );
   }
 
   /** Open the native diff editor for a pending edit (before snapshot vs current). */

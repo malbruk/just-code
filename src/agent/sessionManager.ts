@@ -132,7 +132,7 @@ export class SessionManager implements vscode.Disposable {
     this.effort = cfg.effort;
     this.extendedThinking = cfg.extendedThinking;
     this.autoModelFallback = cfg.autoModelFallback;
-    this.permissions = new PermissionBridge((m) => this.post(m), log);
+    this.permissions = new PermissionBridge((m) => this.post(m), log, this.edits);
     this.permissions.setMode(this.permissionMode);
     this.editorTracker = new EditorContextTracker((m) => this.post(m));
     void this.refreshAuth();
@@ -366,7 +366,13 @@ export class SessionManager implements vscode.Disposable {
     this.sessionTitle = undefined;
     this.firstPromptText = undefined;
     this.titleAttempted = false;
-    void this.edits.rejectAll();
+    // Abandoning a conversation must never touch the disk. These edits are
+    // already applied — the user has seen them, built on them, possibly
+    // committed them. Reverting files here (the old `rejectAll()`) silently
+    // destroyed work on every New Chat / `/clear` / delete-current-session;
+    // see docs/EDIT-LOSS-DIAGNOSIS.md. Reverts happen only on an explicit
+    // user action (Undo on a diff card, the reject-all command).
+    this.edits.acceptAll();
     this.sendInit();
   }
 

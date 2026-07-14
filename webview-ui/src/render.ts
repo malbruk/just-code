@@ -463,7 +463,7 @@ export class Transcript {
         sub.className = 'tool-sub';
         sub.textContent = diffSummary(tool.diff);
         bodyWrap.appendChild(sub);
-        bodyWrap.appendChild(renderDiff(tool.diff));
+        bodyWrap.appendChild(renderDiff(tool.diff, tool.id));
       }
 
       // AskUserQuestion was answered in its own card; the raw questions/options
@@ -760,7 +760,7 @@ function renderPermissionCard(req: PermissionRequest): HTMLElement {
   return card;
 }
 
-function renderDiff(diff: DiffView): HTMLElement {
+function renderDiff(diff: DiffView, toolUseId?: string): HTMLElement {
   const wrap = document.createElement('div');
   wrap.className = 'diff';
   const head = document.createElement('button');
@@ -801,6 +801,18 @@ function renderDiff(diff: DiffView): HTMLElement {
   }
 
   wrap.appendChild(body);
+
+  // A pending (not-yet-accepted) applied edit gets Keep / Undo controls. Undo
+  // is host-side guarded: it only reverts while the disk still holds exactly
+  // what this edit produced.
+  if (diff.pending && toolUseId) {
+    const actions = document.createElement('div');
+    actions.className = 'diff-actions';
+    actions.innerHTML =
+      `<button type="button" class="btn" data-edit-decision="accept" data-tool-id="${escapeHtml(toolUseId)}">Keep</button>` +
+      `<button type="button" class="btn btn-ghost" data-edit-decision="reject" data-tool-id="${escapeHtml(toolUseId)}">Undo</button>`;
+    wrap.appendChild(actions);
+  }
   return wrap;
 }
 

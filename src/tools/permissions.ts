@@ -8,7 +8,7 @@ import type {
   QuestionSpec,
 } from '@just-code/core';
 import { toolTitle } from '@just-code/core/util/text.js';
-import { buildPreviewDiff, isEditTool } from './diff';
+import { buildPreviewDiff, editToolPath, isEditTool, type PendingEditManager } from './diff';
 import { getWorkspaceRoot } from '../agent/config';
 import type { Logger } from '../util/logger';
 
@@ -51,6 +51,7 @@ export class PermissionBridge {
   constructor(
     private readonly post: (msg: HostToWebview) => void,
     private readonly log: Logger,
+    private readonly edits: PendingEditManager,
   ) {}
 
   setMode(mode: PermissionMode): void {
@@ -85,6 +86,16 @@ export class PermissionBridge {
     const questions = toolName === ASK_USER_QUESTION ? parseQuestions(input) : undefined;
     if (questions?.length) {
       return this.askQuestions(input, questions, options.signal);
+    }
+
+    // Snapshot an edit target *before* any allow below can release the tool to
+    // run — execution waits on this callback, so this read cannot race the
+    // native binary's write (unlike the session-side snapshot, which fires when
+    // the tool_use block arrives). Idempotent per toolUseID; a snapshot taken
+    // for an edit that ends up denied is discarded when its result arrives.
+    if (isEditTool(toolName)) {
+      const fsPath = editToolPath(input);
+      if (fsPath) await this.edits.snapshot(options.toolUseID, fsPath);
     }
 
     // Mode short-circuits.
