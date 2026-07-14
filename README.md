@@ -185,6 +185,14 @@ forwarding webview actions back. The webview is a dependency-free TypeScript app
 renders the transcript and composer using VS Code theme variables, so it matches any
 color theme.
 
+## Disclaimer
+
+Just Code is provided "as is", without warranty of any kind. The extension runs an
+AI agent that can read, modify, and delete files and execute shell commands in your
+workspace. You are solely responsible for reviewing its actions and for any changes,
+data loss, costs (API/subscription usage), or other consequences arising from its
+use. See [LICENSE](LICENSE) for the full terms.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). The Claude Agent SDK and the Claude runtime it bundles are
