@@ -3,28 +3,38 @@
 Continuation plan for making Just Code run beyond VS Code. Read this top-to-bottom
 before starting a fresh session; it captures context not obvious from the code.
 
-## Where we are (done)
+## Where we are
 
-A monorepo migration extracted an IDE-agnostic core so the same agent loop can run
-outside VS Code. All of the following is **merged to `master` and pushed**, VS Code
-behaviour unchanged:
+### Merged to `master`
+
+The first monorepo slice extracted an IDE-agnostic core, VS Code behaviour unchanged:
 
 - **`packages/core`** — `@just-code/core`, zero `vscode`/DOM. Holds the frozen
-  `protocol.ts` (host↔webview contract) **and** the agent core: `agent/session.ts`
-  (`AgentSession`, the streaming `query()` loop), `agent/{sdk,asyncQueue,errors,usage,
-  editTools}.ts`, `util/text.ts`.
+  `protocol.ts` (host↔webview contract) plus `agent/{sdk,asyncQueue,errors,usage}.ts`
+  and `util/text.ts`.
   - Imported two ways: bare `@just-code/core` (barrel = protocol) and subpath
-    `@just-code/core/<path>.js` (e.g. `@just-code/core/agent/session.js`). Resolution:
+    `@just-code/core/<path>.js` (e.g. `@just-code/core/agent/sdk.js`). Resolution:
     tsconfig `paths` (`@just-code/core` + `@just-code/core/*`) + esbuild `tsconfig`
     option + npm workspaces symlink. Core is **CJS-typed** (no `type: module`).
-- **`AgentSession` is decoupled from `vscode`** via two port interfaces defined in
-  `packages/core/src/agent/session.ts`:
+
+**Not yet on `master`** (per `CLAUDE.md`): `AgentSession` (`src/agent/session.ts`) is
+still in `src/` and vscode-entangled via `diff`/`Logger` — decoupling it for the sidecar
+is the next migration slice — and `packages/intellij-plugin/` does not exist on `master`.
+
+### On branch `intellij` only (not merged)
+
+The IntelliJ groundwork lives on the `intellij` branch (3 commits on top of `master`,
+see "Branch model" below):
+
+- **`AgentSession` decoupled from `vscode`** via two port interfaces defined in
+  `packages/core/src/agent/session.ts` (moved into core on that branch, along with
+  `agent/editTools.ts`):
   - `LogSink` — `{ warn(...args), error(...args) }`. VS Code passes its `Logger`;
     the sidecar passes a console logger.
   - `EditTracker` — `{ snapshot(id, fsPath), finalizeDiff(id): Promise<DiffView|undefined> }`.
     VS Code passes `PendingEditManager`; the sidecar passes a no-op (IntelliJ renders
     diffs IDE-side).
-- **Webview is IDE-agnostic** (`webview-ui/`): all host I/O goes through
+- **Webview made IDE-agnostic** (`webview-ui/`): all host I/O goes through
   `bridge.ts` (`HostBridge` = `post` / `onMessage` / `getState` / `setState`). VS Code
   adapter = `vscodeBridge.ts`; entry = `main.vscode.ts` (registers adapter, then imports
   `main.ts`). **IntelliJ will add `main.intellij.ts` + a JCEF adapter — `main.ts` itself
