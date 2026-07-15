@@ -58,6 +58,17 @@ There is no unit-test runner; verify with the scripts below.
   with a stubbed `vscode` to check `/usage` routing. It pins the config stub to an
   API-key session with no key, so an unknown command can't fall through and bill a
   real turn. Extend it when adding a client-side slash command.
+- `node scratch/instructions-tool-test.mjs` — bundles `src/agent/instructions/server.ts`,
+  registers the in-process MCP server on a live `query()` (exactly as `buildOptions`
+  does), and asserts `load_instructions` is exposed, executes without a permission
+  prompt, and injects the profile text into the conversation.
+- `node scratch/instructions-registry-test.mjs` — bundles the registry/server +
+  `systemPrompt.ts` with no live query: pins the `load_instructions` handler's output
+  for a known profile and the `isError` path for an unknown one (unreachable via a
+  live model call, since the zod enum schema rejects a bad profile first), the
+  generated tool description containing every profile's trigger, and the
+  `{{INSTRUCTION_PROFILES}}` slot being fully replaced. Run both after touching
+  `agent/instructions/**` or `agent/system{P,-p}rompt*`.
 - Native binary / auth path: `node -e` resolving `@anthropic-ai/claude-agent-sdk-<plat>/claude(.exe)`
   and running `claude auth status --json` (see git history / scratch for the exact snippet).
 
@@ -191,6 +202,16 @@ Host (`src/`):
 - `agent/config.ts` — reads settings, resolves auth, builds SDK `Options`
   (pins `pathToClaudeCodeExecutable` to the resolved binary).
 - `agent/cli.ts` — resolves & drives the native `claude` binary for auth.
+- `agent/instructions/` — on-demand instruction profiles. `registry.ts` holds the
+  `PROFILES` map (each entry: `trigger` — the load condition, composed into both
+  the system prompt and the tool description — and `text`), plus `getProfile`/
+  `frame`, exported for tests. `server.ts` builds the in-process SDK MCP server
+  exposing `load_instructions` (`createInstructionsServer`); `instructionsToolDescription`
+  and the `handleLoadInstructions` handler are also exported for tests. Adding a
+  profile is a new `.md` under `agent/prompts/` + one entry in `PROFILES` — the
+  `{{INSTRUCTION_PROFILES}}` slot in `system-prompt.md` (filled by `systemPrompt.ts`)
+  and the tool description regenerate from the registry automatically, so nothing
+  else needs to change. `load_instructions` is auto-allowed in `tools/permissions.ts`.
 - `tools/permissions.ts` — `canUseTool` bridge → `permissionRequest` / awaits decision.
 - `tools/diff.ts` — pre-edit snapshots, applied-diff compute, accept/reject, native
   diff editor, `just-code.hasPendingEdits` context key.

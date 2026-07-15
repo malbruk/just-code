@@ -28,7 +28,7 @@ import {
   resolveApiKey,
   storeApiKey,
 } from './config';
-import { createInstructionsServer } from './instructions';
+import { createInstructionsServer } from './instructions/server';
 import {
   clearBinaryCache,
   getAuthStatus,
