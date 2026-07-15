@@ -7,6 +7,7 @@ import type {
   QuestionOption,
   QuestionSpec,
 } from '@just-code/core';
+import { LOAD_INSTRUCTIONS_TOOL } from '@just-code/core';
 import { toolTitle } from '@just-code/core/util/text.js';
 import { buildPreviewDiff, editToolPath, isEditTool, type PendingEditManager } from './diff';
 import { getWorkspaceRoot } from '../agent/config';
@@ -32,6 +33,10 @@ const READ_ONLY_TOOLS = new Set([
   'TodoWrite',
   'BashOutput',
   'Task',
+  // The extension's own instruction-profile loader: returns bundled prompt
+  // text, mutates nothing. Must stay auto-allowed (and thus plan-mode safe) —
+  // a permission prompt for it would be meaningless to the user.
+  LOAD_INSTRUCTIONS_TOOL,
 ]);
 
 interface Pending {

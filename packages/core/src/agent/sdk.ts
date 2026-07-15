@@ -20,6 +20,7 @@ export type {
   SessionMessage,
   RewindFilesResult,
   McpServerStatus,
+  McpSdkServerConfigWithInstance,
   SDKControlGetUsageResponse,
   SDKRateLimitInfo,
 } from '@anthropic-ai/claude-agent-sdk' with { 'resolution-mode': 'import' };

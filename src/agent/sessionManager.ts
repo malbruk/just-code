@@ -31,6 +31,7 @@ import {
   resolveApiKey,
   storeApiKey,
 } from './config';
+import { createInstructionsServer } from './instructions/server';
 import {
   clearBinaryCache,
   getAuthStatus,
@@ -329,6 +330,7 @@ export class SessionManager implements vscode.Disposable {
       extendedThinking: this.extendedThinking,
       autoModelFallback: this.autoModelFallback,
       canUseTool: this.permissions.canUseTool,
+      instructionsServer: await createInstructionsServer(),
       abortController,
       resume: resumeId,
       log: (d) => this.log.raw(d),
