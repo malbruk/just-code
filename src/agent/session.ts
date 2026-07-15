@@ -3,6 +3,7 @@ import type {
   McpServerStatus,
   Options,
   Query,
+  RewindFilesResult,
   SDKControlGetUsageResponse,
   SDKMessage,
   SDKRateLimitInfo,
@@ -250,6 +251,20 @@ export class AgentSession {
       this.deps.log.warn('usage request failed', err);
       return undefined;
     }
+  }
+
+  /**
+   * Restore checkpointed files to their state at a user turn, identified by
+   * its SDK transcript uuid (NOT a local ChatMessage id — the stream never
+   * echoes user uuids in streaming-input mode, so callers read them from
+   * `getSessionMessages`). Backed by `enableFileCheckpointing` in the options;
+   * `dryRun: true` previews the file list without touching the disk.
+   * Undefined when the runtime isn't available; throws on transport errors.
+   */
+  async rewindFiles(userMessageUuid: string, opts?: { dryRun?: boolean }): Promise<RewindFilesResult | undefined> {
+    const q = await this.ready();
+    if (!q) return undefined;
+    return q.rewindFiles(userMessageUuid, opts);
   }
 
   dispose(): void {

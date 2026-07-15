@@ -16,6 +16,9 @@ import type {
   WebviewToHost,
 } from '@just-code/core';
 import { MODELS } from '@just-code/core';
+import { loadSdk } from '@just-code/core/agent/sdk.js';
+import type { SessionMessage } from '@just-code/core/agent/sdk.js';
+import { relPath } from '@just-code/core/util/text.js';
 import { toAccountUsage, warningFromEvent, warningFromWindows } from '@just-code/core/agent/usage.js';
 import { AgentSession } from './session';
 import type { ImageInput, ImageMediaType } from './session';
@@ -51,6 +54,30 @@ import { generateTitle } from './titler';
 import { Logger } from '../util/logger';
 
 let userMsgSeq = 0;
+
+/**
+ * True for transcript entries that were real user prompts — the checkpoints
+ * `rewindFiles` accepts. Excludes tool-result plumbing and the synthetic user
+ * turns the CLI records for interrupts.
+ */
+function isUserTurnEntry(entry: SessionMessage): boolean {
+  if (entry.type !== 'user' || entry.parent_tool_use_id) return false;
+  const content = (entry.message as { content?: unknown } | undefined)?.content;
+  const texts: string[] = [];
+  if (typeof content === 'string') {
+    texts.push(content);
+  } else if (Array.isArray(content)) {
+    const blocks = content as Array<Record<string, unknown>>;
+    if (blocks.some((b) => b['type'] === 'tool_result')) return false;
+    if (!blocks.some((b) => b['type'] === 'text' || b['type'] === 'image')) return false;
+    for (const b of blocks) {
+      if (b['type'] === 'text' && typeof b['text'] === 'string') texts.push(b['text'] as string);
+    }
+  } else {
+    return false;
+  }
+  return !texts.some((t) => t.startsWith('[Request interrupted'));
+}
 
 /**
  * Extensions treated as images for "Upload from computer" (carried as data
@@ -552,6 +579,12 @@ export class SessionManager implements vscode.Disposable {
         // The dialog asks for its own data once it's open, so there is nothing
         // to fetch here — and nothing to echo, as with the other UI commands.
         this.post({ type: 'openAccountDialog' });
+        return 'handled';
+
+      case '/rewind':
+        // A UI action, not a prompt: no echo — the typed `/rewind` was never
+        // submitted as a turn, so `rewindLastTurn` targets the real last one.
+        await this.rewindLastTurn();
         return 'handled';
 
       case '/doctor':
@@ -1170,17 +1203,137 @@ export class SessionManager implements vscode.Disposable {
     await this.sendHistory();
   }
 
+  /**
+   * Command-palette entry point ("Rewind to Checkpoint"): rewind to the last
+   * user turn — the same target the webview's Rewind action uses.
+   */
+  async rewindLastTurn(): Promise<void> {
+    const session = this.session;
+    const lastUser = session ? [...session.messages].reverse().find((m) => m.role === 'user') : undefined;
+    if (!session || !lastUser) {
+      void vscode.window.showInformationMessage('Just Code: nothing to rewind in the current conversation.');
+      return;
+    }
+    await this.reveal();
+    await this.rewind(lastUser.id);
+  }
+
+  /**
+   * Rewind the current conversation to the user turn `messageId`: restore
+   * checkpointed files to their state at that turn (SDK `rewindFiles`, backed
+   * by the `enableFileCheckpointing` option) and trim the local transcript.
+   *
+   * Real but bounded: the SDK cannot trim the *model's* history for an active
+   * streaming session, so later turns may still be in the model's context —
+   * the disk and the visible transcript are what actually rewind.
+   */
   private async rewind(messageId: string): Promise<void> {
-    // The SDK has no first-class checkpoint-rewind for an active streaming
-    // session, so we approximate by trimming the local transcript to the
-    // checkpoint and re-initializing the view. Underlying model history is
-    // unchanged. (See report: needs a protocol/SDK checkpoint hook.)
     const session = this.session;
     if (!session) return;
+    if (session.isBusy()) {
+      void vscode.window.showInformationMessage('Wait for the current turn to finish before rewinding.');
+      return;
+    }
     const idx = session.messages.findIndex((m) => m.id === messageId);
-    if (idx >= 0) {
-      session.messages.splice(idx + 1);
-      this.sendInit();
+    if (idx < 0) return;
+
+    const restored = await this.restoreFilesAt(session, idx);
+    if (restored === 'cancelled') return;
+
+    const removed = session.messages.splice(idx + 1);
+    // Snapshots of trimmed turns must not linger: their tool cards are gone,
+    // and after a file restore a later "reject" would write stale content.
+    for (const message of removed) {
+      for (const block of message.blocks) {
+        if (block.type === 'tool_use') this.edits.discard(block.toolUse.id);
+      }
+    }
+    this.sendInit();
+    if (typeof restored === 'number' && restored > 0) {
+      this.postSystem(`Rewound to checkpoint — restored ${restored} file${restored === 1 ? '' : 's'}.`);
+    }
+  }
+
+  /**
+   * Restore checkpointed files to their state at the user turn at `idx`,
+   * after a dry-run preview and a modal confirmation.
+   *
+   * Returns the number of files restored (0 = nothing to restore, or the
+   * restore isn't available and the rewind falls back to transcript-trim
+   * only — the pre-#10 behavior), or 'cancelled' when the user backed out or
+   * the restore failed, in which case the caller must not trim either.
+   */
+  private async restoreFilesAt(session: AgentSession, idx: number): Promise<number | 'cancelled'> {
+    const sessionId = session.sessionId;
+    if (!sessionId) return 0; // no turn ever reached the runtime — nothing on disk
+
+    const uuid = await this.transcriptUuidAt(sessionId, session, idx);
+    if (!uuid) {
+      this.log.warn('rewind: could not map the turn to a transcript uuid; trimming transcript only');
+      return 0;
+    }
+
+    let preview;
+    try {
+      preview = await session.rewindFiles(uuid, { dryRun: true });
+    } catch (err) {
+      this.log.warn('rewind: rewindFiles dry run failed', err);
+    }
+    if (!preview || preview.canRewind === false) {
+      if (preview?.error) this.log.warn(`rewind: file restore unavailable: ${preview.error}`);
+      return 0;
+    }
+    const files = preview.filesChanged ?? [];
+    if (!files.length) return 0;
+
+    const root = getWorkspaceRoot();
+    const list = files.slice(0, 8).map((f) => relPath(root, f));
+    const overflow = files.length > list.length ? `\n…and ${files.length - list.length} more` : '';
+    const choice = await vscode.window.showWarningMessage(
+      `Rewind will restore ${files.length} file${files.length === 1 ? '' : 's'} to their state at that point. Edits made since will be lost.`,
+      { modal: true, detail: `${list.join('\n')}${overflow}` },
+      'Restore Files',
+      'Keep Files',
+    );
+    if (!choice) return 'cancelled';
+    if (choice === 'Keep Files') return 0;
+
+    try {
+      const result = await session.rewindFiles(uuid);
+      if (!result || result.canRewind === false) {
+        throw new Error(result?.error ?? 'checkpoint data unavailable');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      void vscode.window.showErrorMessage(`Rewind failed to restore files: ${message}`);
+      return 'cancelled';
+    }
+    return files.length;
+  }
+
+  /**
+   * Map the local user turn at `idx` to its uuid in the SDK session transcript
+   * — the id `rewindFiles` requires. Streaming-input mode never echoes user
+   * uuids on the message stream (verified against the live runtime), so this
+   * reads the saved transcript and pairs user turns by position from the end,
+   * where the two views are least likely to have diverged.
+   */
+  private async transcriptUuidAt(
+    sessionId: string,
+    session: AgentSession,
+    idx: number,
+  ): Promise<string | undefined> {
+    try {
+      const { getSessionMessages } = await loadSdk();
+      const transcript = await getSessionMessages(sessionId, { dir: getWorkspaceRoot() });
+      const turns = transcript.filter(isUserTurnEntry);
+      // The local message at idx is the k-th user turn counting from the end.
+      const k = session.messages.slice(idx).filter((m) => m.role === 'user').length;
+      if (k === 0) return undefined;
+      return turns[turns.length - k]?.uuid;
+    } catch (err) {
+      this.log.warn('rewind: reading the session transcript failed', err);
+      return undefined;
     }
   }
 

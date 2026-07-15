@@ -158,7 +158,8 @@ export function buildOptions(args: BuildOptionsArgs): Options {
     model: model === 'default' ? undefined : model,
     abortController,
     additionalDirectories: config.additionalDirectories,
-    // Track file changes so turns can be rewound (SDK `Query.rewindFiles`).
+    // Track file changes so Rewind can restore them (SessionManager.rewind →
+    // `Query.rewindFiles`, issue #10).
     enableFileCheckpointing: true,
     env,
     stderr: log,

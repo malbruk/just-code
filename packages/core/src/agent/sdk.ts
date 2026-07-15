@@ -18,6 +18,7 @@ export type {
   PermissionUpdate,
   SDKSessionInfo,
   SessionMessage,
+  RewindFilesResult,
   McpServerStatus,
   SDKControlGetUsageResponse,
   SDKRateLimitInfo,
