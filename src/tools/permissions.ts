@@ -251,7 +251,7 @@ function parseQuestions(input: Record<string, unknown>): QuestionSpec[] | undefi
 
 async function safeBuildDiff(name: string, input: Record<string, unknown>, log: Logger) {
   try {
-    return await buildPreviewDiff(name, input);
+    return await buildPreviewDiff(name, input, log);
   } catch (err) {
     log.warn('Failed to build preview diff', err);
     return undefined;
