@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
     cmd('just-code.setPermissionMode', () => selectPermissionMode(manager)),
     cmd('just-code.signIn', () => manager.signIn()),
     cmd('just-code.signOut', () => manager.signOut()),
-    cmd('just-code.rewind', () => undefined),
+    cmd('just-code.rewind', () => manager.rewindLastTurn()),
     cmd('just-code.focusInput', async () => {
       await provider.reveal();
       manager.focusInput();

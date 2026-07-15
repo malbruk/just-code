@@ -36,7 +36,9 @@ forever, primed to be "restored" later; and the session-side snapshot was fired
 **Exonerated:** the `.claude/settings.json` PostToolUse `npx tsc --noEmit` hook.
 A PostToolUse hook cannot revert files; it only slowed edits and added red-state
 noise during multi-step refactors. Likewise `enableFileCheckpointing` (SDK-side
-shadow checkpoints) — the extension never calls `rewindFiles`.
+shadow checkpoints) — at the time the extension never called `rewindFiles`.
+(Since issue #10 it does, but only from the explicit Rewind action, behind a
+dry-run preview and a modal confirmation.)
 
 ## The fix — invariants to preserve
 
