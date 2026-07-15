@@ -34,6 +34,10 @@ There is no unit-test runner; verify with the scripts below.
 
 ### Verifying changes (no VS Code GUI needed)
 
+CI (`.github/workflows/ci.yml`) runs the first two checks — type-check + build — on every
+PR against `master` and on pushes to `master`. The `scratch/` scripts are gitignored and
+remain manual-only; run the relevant ones locally as described below.
+
 - `npx tsc --noEmit -p tsconfig.json` — must be clean (whole project, both halves).
 - `node esbuild.js` — must build both bundles with no errors.
 - `node scratch/activate-test.js` — stubs the `vscode` module, requires the built
