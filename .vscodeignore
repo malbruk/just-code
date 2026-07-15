@@ -15,8 +15,13 @@ scratch/**
 scripts/**
 CLAUDE.md
 PUBLISHING.md
+TODO.md
 **/*.ts
 **/*.map
+
+# Internal dev-only files — never ship these to end users.
+.claude/**
+publish.md
 
 # Icon source — kept in the repo to re-render media/icon.png, but only the .png ships.
 media/icon.svg
