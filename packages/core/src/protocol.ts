@@ -309,7 +309,6 @@ export interface HistoryEntry {
   sessionId: string;
   title: string;
   updatedAt: number;
-  messageCount: number;
 }
 
 /** A slash command surfaced in the input autocomplete. */

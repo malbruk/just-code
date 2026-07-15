@@ -19,7 +19,6 @@ export async function listHistory(log: Logger): Promise<HistoryEntry[]> {
       sessionId: s.sessionId,
       title: s.customTitle || s.summary || s.firstPrompt || 'Untitled conversation',
       updatedAt: s.lastModified,
-      messageCount: 0,
     }));
   } catch (err) {
     log.warn('listHistory failed', err);

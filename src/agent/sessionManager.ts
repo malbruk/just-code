@@ -828,7 +828,7 @@ export class SessionManager implements vscode.Disposable {
     const pick = await vscode.window.showQuickPick(
       entries.map((e) => ({
         label: e.title || 'Untitled conversation',
-        description: `${e.messageCount} messages · ${new Date(e.updatedAt).toLocaleString()}`,
+        description: new Date(e.updatedAt).toLocaleString(),
         sessionId: e.sessionId,
       })),
       { title: 'Resume a conversation', placeHolder: 'Select a conversation to resume' },
