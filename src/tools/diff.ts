@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { DiffView } from '@just-code/core';
 import { relPath } from '@just-code/core/util/text.js';
 import { getWorkspaceRoot } from '../agent/config';
+import type { Logger } from '../util/logger';
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 
@@ -89,20 +90,37 @@ export function editToolPath(input: Record<string, unknown>): string | undefined
   return typeof p === 'string' ? p : undefined;
 }
 
-async function readFileIfExists(fsPath: string): Promise<string> {
+/**
+ * True for the "file does not exist" error family — `vscode.FileSystemError`
+ * with code `FileNotFound`, or a Node `ENOENT`. Checked structurally (not via
+ * `instanceof`) so it also works where `vscode` is stubbed.
+ */
+function isFileNotFound(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return code === 'FileNotFound' || code === 'ENOENT';
+}
+
+async function readFileIfExists(fsPath: string, log?: Logger): Promise<string> {
   try {
     const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(fsPath));
     return Buffer.from(bytes).toString('utf8');
-  } catch {
+  } catch (err) {
+    // A missing file is this function's contract; anything else is a real
+    // read failure being coerced to "empty" and must leave a trail.
+    if (!isFileNotFound(err)) log?.warn(`readFileIfExists: failed to read ${fsPath}`, err);
     return '';
   }
 }
 
 /** Build a preview DiffView (before = disk now, after = predicted) for permission UI. */
-export async function buildPreviewDiff(name: string, input: Record<string, unknown>): Promise<DiffView | undefined> {
+export async function buildPreviewDiff(
+  name: string,
+  input: Record<string, unknown>,
+  log?: Logger,
+): Promise<DiffView | undefined> {
   const fsPath = editToolPath(input);
   if (!fsPath) return undefined;
-  const before = await readFileIfExists(fsPath);
+  const before = await readFileIfExists(fsPath, log);
   const after = predictAfter(name, input, before);
   const { additions, deletions } = countLineDiff(before, after);
   return { path: relPath(getWorkspaceRoot(), fsPath), before, after, additions, deletions };
@@ -140,7 +158,7 @@ export class PendingEditManager implements vscode.Disposable {
   private readonly disposables: vscode.Disposable[] = [];
   private seq = 0;
 
-  constructor() {
+  constructor(private readonly log?: Logger) {
     const provider: vscode.TextDocumentContentProvider = {
       provideTextDocumentContent: (uri) => this.snapshotContent.get(uri.toString()) ?? '',
     };
@@ -157,8 +175,18 @@ export class PendingEditManager implements vscode.Disposable {
     try {
       const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(fsPath));
       before = Buffer.from(bytes).toString('utf8');
-    } catch {
+    } catch (err) {
+      // A genuinely missing file is the normal "Write creates it" case. Any
+      // other read failure (permissions, lock, path length…) is coerced to the
+      // same state so the edit flow survives, but misjudging existedBefore has
+      // caused data loss before (docs/EDIT-LOSS-DIAGNOSIS.md) — log it loudly.
       existedBefore = false;
+      if (!isFileNotFound(err)) {
+        this.log?.warn(
+          `snapshot: reading ${fsPath} failed with a non-ENOENT error; treating as "did not exist"`,
+          err,
+        );
+      }
     }
     this.pending.set(toolUseId, { toolUseId, fsPath, before, existedBefore, seq: this.seq++ });
     this.updateContextKey();
@@ -172,7 +200,7 @@ export class PendingEditManager implements vscode.Disposable {
   async finalizeDiff(toolUseId: string): Promise<DiffView | undefined> {
     const entry = this.pending.get(toolUseId);
     if (!entry) return undefined;
-    const after = await readFileIfExists(entry.fsPath);
+    const after = await readFileIfExists(entry.fsPath, this.log);
     entry.after = after;
     const { additions, deletions } = countLineDiff(entry.before, after);
     return {
@@ -256,8 +284,11 @@ export class PendingEditManager implements vscode.Disposable {
     let current: string | undefined;
     try {
       current = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString('utf8');
-    } catch {
-      current = undefined; // file missing
+    } catch (err) {
+      current = undefined; // file missing — or unreadable, which the guard below treats the same
+      if (!isFileNotFound(err)) {
+        this.log?.warn(`restore: failed to read current content of ${entry.fsPath}`, err);
+      }
     }
 
     const beforeState = entry.existedBefore ? entry.before : undefined;
@@ -272,7 +303,11 @@ export class PendingEditManager implements vscode.Disposable {
         await vscode.workspace.fs.delete(uri);
       }
       return 'restored';
-    } catch {
+    } catch (err) {
+      this.log?.warn(
+        `restore: failed to ${entry.existedBefore ? 'write snapshot back to' : 'delete'} ${entry.fsPath}`,
+        err,
+      );
       return 'skipped';
     }
   }

@@ -89,7 +89,7 @@ function collectImages(attachments: Attachment[]): ImageInput[] {
  * connected webviews).
  */
 export class SessionManager implements vscode.Disposable {
-  readonly edits = new PendingEditManager();
+  readonly edits: PendingEditManager;
   readonly editorTracker: EditorContextTracker;
   private readonly permissions: PermissionBridge;
 
@@ -126,6 +126,7 @@ export class SessionManager implements vscode.Disposable {
     private readonly context: vscode.ExtensionContext,
     private readonly log: Logger,
   ) {
+    this.edits = new PendingEditManager(log);
     const cfg = readConfig();
     this.model = cfg.model;
     this.permissionMode = cfg.permissionMode;
