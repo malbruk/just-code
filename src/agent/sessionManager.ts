@@ -1233,21 +1233,28 @@ export class SessionManager implements vscode.Disposable {
     const method = readConfig().authMethod;
     let auth: AuthInfo = { signedIn: false, method };
 
-    if (method === 'apiKey') {
-      const key = await resolveApiKey(this.context);
-      auth = { signedIn: !!key, method: 'apiKey' };
-    } else {
-      const bin = resolveClaudeBinary();
-      if (bin) {
-        const status = await getAuthStatus(bin);
-        auth = {
-          signedIn: status.loggedIn,
-          method: 'subscription',
-          email: status.email,
-          plan: status.subscriptionType,
-          org: status.orgName,
-        };
+    try {
+      if (method === 'apiKey') {
+        const key = await resolveApiKey(this.context);
+        auth = { signedIn: !!key, method: 'apiKey' };
+      } else {
+        const bin = resolveClaudeBinary();
+        if (bin) {
+          const status = await getAuthStatus(bin);
+          auth = {
+            signedIn: status.loggedIn,
+            method: 'subscription',
+            email: status.email,
+            plan: status.subscriptionType,
+            org: status.orgName,
+          };
+        }
       }
+    } catch (err) {
+      // Callers fire-and-forget this method, so a throw here would become an
+      // unhandled rejection. Log and broadcast signed-out instead of stale state.
+      this.log.error('Auth refresh failed', err);
+      auth = { signedIn: false, method };
     }
 
     this.auth = auth;
