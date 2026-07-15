@@ -581,6 +581,12 @@ export class SessionManager implements vscode.Disposable {
         this.post({ type: 'openAccountDialog' });
         return 'handled';
 
+      case '/rewind':
+        // A UI action, not a prompt: no echo — the typed `/rewind` was never
+        // submitted as a turn, so `rewindLastTurn` targets the real last one.
+        await this.rewindLastTurn();
+        return 'handled';
+
       case '/doctor':
         this.echoCommand(raw);
         this.postSystem(await this.doctorText());

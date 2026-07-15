@@ -34,6 +34,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/release-notes', description: 'Show what is new in Just Code' },
   { name: '/resume', description: 'Resume a previous conversation' },
   { name: '/review', description: 'Review the current changes or a pull request', argHint: '[target]' },
+  {
+    name: '/rewind',
+    description: 'Rewind the conversation and restore files to the last checkpoint',
+    aliases: ['undo turn', 'checkpoint'],
+  },
   { name: '/status', description: 'Show account, model, and workspace status' },
   { name: '/terminal-setup', description: 'Tips for using Claude Code in the terminal' },
   { name: '/usage', description: 'Show account details and plan usage limits' },
