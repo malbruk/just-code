@@ -308,7 +308,15 @@ export class SessionManager implements vscode.Disposable {
     });
 
     const session = new AgentSession({
-      post: (m) => this.post(m),
+      // Only the *active* session may talk to the webview. dispose() does not
+      // stop a consume() loop instantly (the abort has to reach the SDK's
+      // stream first), and every session gets this same broadcast closure —
+      // without the identity check a replaced session could keep posting
+      // stream deltas / busy flips into the conversation that superseded it.
+      // Second line of defense behind AgentSession's own `disposed` flag. (#9)
+      post: (m) => {
+        if (this.session === session) this.post(m);
+      },
       options,
       abortController,
       edits: this.edits,
