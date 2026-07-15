@@ -28,9 +28,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   const cmd = (id: string, fn: (...args: any[]) => unknown): vscode.Disposable =>
-    vscode.commands.registerCommand(id, (...args) => {
+    vscode.commands.registerCommand(id, async (...args) => {
       try {
-        return fn(...args);
+        return await fn(...args);
       } catch (err) {
         log.error(`Command ${id} failed`, err);
         vscode.window.showErrorMessage(`Just Code: ${err instanceof Error ? err.message : String(err)}`);
