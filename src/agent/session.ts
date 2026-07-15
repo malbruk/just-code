@@ -83,6 +83,15 @@ export class AgentSession {
   private readonly queue = new AsyncQueue<SDKUserMessage>();
   private query: Query | undefined;
   private started = false;
+  // Set by dispose(). The SDK's abort signal does not stop its async iterable
+  // instantly, so consume() can keep draining messages after this session has
+  // been replaced (New Chat / history switch). Every session shares the same
+  // webview `post` closure — a late `streamDelta` or `status:{busy:false}`
+  // from a dead session would corrupt the conversation that replaced it.
+  // INVARIANT: after dispose(), this session posts nothing and invokes no
+  // owner callback. All traffic funnels through post() / handleMessage(),
+  // which check this flag. (issue #9)
+  private disposed = false;
 
   // `start()` is synchronous but the SDK loads (and the query is created)
   // asynchronously. Control requests issued before a turn is ever submitted —
@@ -130,7 +139,7 @@ export class AgentSession {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       this.deps.log.error('Failed to start agent query', err);
-      this.deps.post({ type: 'error', message });
+      this.post({ type: 'error', message });
       this.resolveQuery(undefined);
       this.setBusy(false);
       return;
@@ -158,7 +167,7 @@ export class AgentSession {
   submit(message: ChatMessage, promptText: string, images: ImageInput[] = []): void {
     if (!this.started) this.start();
     this.messages.push(message);
-    this.deps.post({ type: 'userMessage', message });
+    this.post({ type: 'userMessage', message });
     this.setBusy(true);
     const userMsg: SDKUserMessage = {
       type: 'user',
@@ -244,6 +253,7 @@ export class AgentSession {
   }
 
   dispose(): void {
+    this.disposed = true;
     try {
       this.queue.end();
       this.deps.abortController.abort();
@@ -256,10 +266,16 @@ export class AgentSession {
 
   // --- internals -----------------------------------------------------------
 
+  /** Single choke point to the webview: drops everything once disposed. */
+  private post(msg: HostToWebview): void {
+    if (this.disposed) return;
+    this.deps.post(msg);
+  }
+
   private setBusy(busy: boolean): void {
     if (this.busy === busy) return;
     this.busy = busy;
-    this.deps.post({ type: 'status', busy });
+    this.post({ type: 'status', busy });
   }
 
   /**
@@ -267,11 +283,12 @@ export class AgentSession {
    * and hand a classified error to the owner (which surfaces it to the user).
    */
   private fail(raw: string): void {
+    if (this.disposed) return;
     const error = classifyStreamError(raw);
     this.deps.log.error(`Session stream error [${error.kind}]: ${raw}`);
     this.finishActiveMessage();
     if (this.deps.onError) this.deps.onError(error);
-    else this.deps.post({ type: 'error', message: error.message });
+    else this.post({ type: 'error', message: error.message });
     this.setBusy(false);
   }
 
@@ -307,6 +324,9 @@ export class AgentSession {
   }
 
   private async handleMessage(msg: SDKMessage): Promise<void> {
+    // A replaced session's stream may still be draining; stop translating so
+    // no state mutation, owner callback, or post outlives dispose().
+    if (this.disposed) return;
     switch (msg.type) {
       case 'system':
         this.handleSystem(msg);
@@ -388,7 +408,7 @@ export class AgentSession {
     this.activeMessage = { id, role: 'assistant', blocks: [], streaming: true, createdAt: Date.now() };
     this.messages.push(this.activeMessage);
     this.blockTypeByIndex.clear();
-    this.deps.post({ type: 'assistantStart', messageId: id });
+    this.post({ type: 'assistantStart', messageId: id });
   }
 
   private ensureActiveMessage(): ChatMessage {
@@ -404,7 +424,7 @@ export class AgentSession {
     } else {
       message.blocks.push({ type: blockType, text: delta } as ContentBlock);
     }
-    this.deps.post({ type: 'streamDelta', messageId: message.id, blockType, delta });
+    this.post({ type: 'streamDelta', messageId: message.id, blockType, delta });
   }
 
   private async handleAssistant(msg: Extract<SDKMessage, { type: 'assistant' }>): Promise<void> {
@@ -473,7 +493,7 @@ export class AgentSession {
           const fsPath = editToolPath(input);
           if (fsPath) await this.deps.edits.snapshot(id, fsPath);
         }
-        this.deps.post({ type: 'toolUpdate', messageId: message.id, tool: view });
+        this.post({ type: 'toolUpdate', messageId: message.id, tool: view });
       }
     }
   }
@@ -504,7 +524,7 @@ export class AgentSession {
           if (diff) entry.view.diff = diff;
         }
       }
-      this.deps.post({ type: 'toolUpdate', messageId: entry.messageId, tool: entry.view });
+      this.post({ type: 'toolUpdate', messageId: entry.messageId, tool: entry.view });
     }
   }
 
@@ -513,13 +533,13 @@ export class AgentSession {
     if (!entry) return;
     entry.view.status = status;
     if (note) entry.view.resultText = note;
-    this.deps.post({ type: 'toolUpdate', messageId: entry.messageId, tool: entry.view });
+    this.post({ type: 'toolUpdate', messageId: entry.messageId, tool: entry.view });
   }
 
   private finishActiveMessage(usage?: UsageInfo): void {
     if (!this.activeMessage || !this.activeMessageId) return;
     this.activeMessage.streaming = false;
-    this.deps.post({ type: 'assistantDone', messageId: this.activeMessageId, usage });
+    this.post({ type: 'assistantDone', messageId: this.activeMessageId, usage });
     this.activeMessage = undefined;
     this.activeMessageId = undefined;
     this.blockTypeByIndex.clear();
@@ -535,9 +555,9 @@ export class AgentSession {
     this.finishActiveMessage(usage);
     if (usage) {
       this.deps.onUsage?.(usage);
-      this.deps.post({ type: 'usage', usage });
+      this.post({ type: 'usage', usage });
     }
-    this.deps.post({ type: 'requestDone', usage });
+    this.post({ type: 'requestDone', usage });
     this.setBusy(false);
     this.deps.onTurnComplete?.(this.sessionId);
   }
