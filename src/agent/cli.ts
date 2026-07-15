@@ -304,7 +304,11 @@ export async function logout(bin: string): Promise<void> {
 export function runLoginInTerminal(bin: string, mode: 'subscription' | 'console', email?: string): vscode.Terminal {
   const terminal = vscode.window.createTerminal({ name: 'Just Code Login' });
   const args = ['auth', 'login', mode === 'console' ? '--console' : '--claudeai'];
-  if (email) args.push('--email', email);
+  // sendText() hands the line to whatever shell the terminal runs (PowerShell,
+  // cmd, bash…), so there is no quoting scheme that is safe everywhere. Only
+  // forward the email when it is made of characters that are inert unquoted in
+  // all of them; otherwise omit it and let the CLI prompt interactively.
+  if (email && /^[A-Za-z0-9@._+-]+$/.test(email)) args.push('--email', email);
   const quoted = `"${bin}" ${args.join(' ')}`;
   terminal.show(true);
   terminal.sendText(quoted, true);
