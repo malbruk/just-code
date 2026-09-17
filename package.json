@@ -370,6 +370,44 @@
           "default": [],
           "description": "Additional directories the agent is allowed to access, beyond the workspace."
         },
+        "just-code.instructionsMode": {
+          "type": "string",
+          "default": "profiles",
+          "enum": [
+            "base",
+            "profiles"
+          ],
+          "enumDescriptions": [
+            "No work profile — only the general base principles, no instruction prompts, and the load_instructions tool is not registered",
+            "The active work profile's system prompt plus its on-demand instruction prompts (filtered by 'Instruction Prompts')"
+          ],
+          "markdownDescription": "Whether the agent runs bare or under the active work profile (`#just-code.activeProfile#`) with its on-demand instruction prompts. Configurable from the chat via `/instructions`. Applies to new chats.",
+          "scope": "application"
+        },
+        "just-code.activeProfile": {
+          "type": "string",
+          "default": "coding",
+          "markdownDescription": "The work profile in effect (exactly one at a time) — its system prompt and instruction prompts apply to new chats when `#just-code.instructionsMode#` is `profiles`. Configurable from the chat via `/instructions`.",
+          "scope": "application"
+        },
+        "just-code.instructionPrompts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "default": {},
+          "markdownDescription": "Per-prompt enable map for on-demand instruction prompts. Keys are `<profile-id>/<prompt-id>`; a prompt missing from the map is **enabled**, so new prompts are on by default. Configurable from the chat via `/instructions`. Applies to new chats.",
+          "scope": "application"
+        },
+        "just-code.autoActivatePrompts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Instruction prompts (`<profile-id>/<prompt-id>` keys) that activate automatically, without the in-chat confirmation card. Managed from the `/instructions` dialog (the card's \"Always activate\" button adds a prompt here).",
+          "scope": "application"
+        },
         "just-code.loadProjectSettings": {
           "type": "boolean",
           "default": true,

@@ -2679,3 +2679,111 @@ code {
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+
+/* --- Instructions dialog (shares the acct-* shell) --- */
+
+.instr-profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.instr-profile.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.instr-profile input[type='checkbox'] {
+  margin: 2px 0 0;
+  accent-color: var(--vscode-button-background);
+  flex: none;
+}
+
+.instr-profile-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.instr-profile-name {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.92em;
+  color: var(--vscode-foreground);
+}
+
+.instr-profile-desc {
+  font-size: 0.86em;
+  line-height: 1.4;
+  color: var(--cc-muted);
+  overflow-wrap: anywhere;
+}
+
+.instr-profile-row {
+  padding: 2px 0;
+}
+
+/* The work-profile radio rows (exactly one profile is active at a time). */
+.instr-profile-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.instr-profile-pick.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.instr-profile-pick input[type='radio'] {
+  margin: 2px 0 0;
+  accent-color: var(--vscode-button-background);
+  flex: none;
+}
+
+/* The per-profile "activate automatically" sub-toggle, indented under its row. */
+.instr-auto {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px 21px;
+  font-size: 0.86em;
+  color: var(--cc-muted);
+  cursor: pointer;
+}
+
+.instr-auto.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.instr-auto input[type='checkbox'] {
+  margin: 0;
+  accent-color: var(--vscode-button-background);
+  flex: none;
+}
+
+/* --- Instruction-profile activation card (shares the perm-card shell) --- */
+
+.profile-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+
+.profile-card-desc {
+  font-size: 0.92em;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.profile-card-note {
+  font-size: 0.86em;
+  line-height: 1.4;
+  color: var(--cc-muted);
+}

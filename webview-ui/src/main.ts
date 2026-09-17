@@ -14,7 +14,7 @@ import type {
   HistoryEntry,
   PermissionDecision,
 } from '@just-code/core';
-import { clock, chatPlus, search as searchIcon, trash } from './icons.js';
+import { clock, chatPlus, search as searchIcon, shield, trash } from './icons.js';
 import { post, getPersisted, setPersisted } from './vscode.js';
 import {
   createInitialState,
@@ -38,6 +38,7 @@ import {
 import { Transcript, toolOutput } from './render.js';
 import { Composer } from './composer.js';
 import { AccountDialog } from './account.js';
+import { InstructionsDialog } from './instructions.js';
 import { imageSize } from './image.js';
 
 const state: AppState = createInitialState();
@@ -49,8 +50,9 @@ const app = document.createElement('div');
 app.className = 'app';
 document.body.appendChild(app);
 
-// Top header: the session title on the left, history + new-chat actions on the
-// right — mirroring the layout of the official Claude Code panel.
+// Top header: the session title on the left, instructions (shield) + history +
+// new-chat actions on the right — mirroring the layout of the official Claude
+// Code panel.
 const header = document.createElement('div');
 header.className = 'chat-header';
 const headerTitle = document.createElement('div');
@@ -59,6 +61,7 @@ headerTitle.textContent = 'Untitled';
 const headerActions = document.createElement('div');
 headerActions.className = 'chat-header-actions';
 headerActions.innerHTML =
+  `<button type="button" class="chat-header-btn" data-header-action="instructions" title="Instructions" aria-label="Instructions">${shield(17)}</button>` +
   `<button type="button" class="chat-header-btn" data-header-action="history" title="Chat history" aria-label="Chat history">${clock(17)}</button>` +
   `<button type="button" class="chat-header-btn" data-header-action="new-chat" title="New chat" aria-label="New chat">${chatPlus()}</button>`;
 header.append(headerTitle, headerActions);
@@ -74,6 +77,7 @@ header.addEventListener('click', (e) => {
   const action = btn.getAttribute('data-header-action');
   if (action === 'new-chat') startNewChat();
   else if (action === 'history') post({ type: 'requestHistory' });
+  else if (action === 'instructions') instructionsDialog.open();
 });
 
 /** Start a fresh conversation and dismiss the history overlay if it's open. */
@@ -186,6 +190,14 @@ const accountDialog = new AccountDialog({
   onOpenUrl: (url) => post({ type: 'openUrl', url }),
 });
 app.appendChild(accountDialog.root);
+
+// Instructions dialog — work profile + instruction prompts (`/instructions`).
+const instructionsDialog = new InstructionsDialog({
+  onRequest: () => post({ type: 'requestInstructionSettings' }),
+  onUpdate: (mode, activeProfile, disabled, auto) =>
+    post({ type: 'updateInstructionSettings', mode, activeProfile, disabled, auto }),
+});
+app.appendChild(instructionsDialog.root);
 
 // Auth gate replaces the composer when signed out. Rendered per sign-in stage.
 const authGate = document.createElement('div');
@@ -658,6 +670,14 @@ function route(msg: HostToWebview): void {
     case 'accountUsage':
       if (msg.usage) accountDialog.show(msg.usage);
       else accountDialog.showError(msg.error ?? 'Account and usage data is unavailable.');
+      break;
+
+    case 'openInstructionsDialog':
+      instructionsDialog.open();
+      break;
+
+    case 'instructionSettings':
+      instructionsDialog.show(msg.settings);
       break;
 
     case 'rateLimitWarning':

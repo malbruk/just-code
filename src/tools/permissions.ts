@@ -33,14 +33,32 @@ const READ_ONLY_TOOLS = new Set([
   'TodoWrite',
   'BashOutput',
   'Task',
-  // The extension's own instruction-profile loader: returns bundled prompt
-  // text, mutates nothing. Must stay auto-allowed (and thus plan-mode safe) —
-  // a permission prompt for it would be meaningless to the user.
-  LOAD_INSTRUCTIONS_TOOL,
 ]);
 
 interface Pending {
   resolve: (decision: PermissionDecision) => void;
+}
+
+/**
+ * How the SessionManager reacts to `load_instructions` calls (the instruction
+ * prompt signal). The bridge only runs the confirmation card; activation
+ * itself — query restart with the prompt inlined in the system prompt +
+ * automatic re-run — happens in the SessionManager, out of band of the denied
+ * call.
+ */
+export interface PromptActivationHooks {
+  /**
+   * Resolve a prompt id (within the active work profile) to its display
+   * name + description, or `undefined` for an unknown prompt. Supplied by the
+   * SessionManager, which knows which profile the session runs under.
+   */
+  lookup(prompt: string): { name: string; description: string } | undefined;
+  /** Whether this prompt activates without asking (the "always" setting). */
+  isAuto(prompt: string): boolean;
+  /** User approved (or auto). `always` persists the auto setting. */
+  onActivate(prompt: string, always: boolean): void;
+  /** User cancelled the request. */
+  onCancel(prompt: string): void;
 }
 
 /**
@@ -57,6 +75,7 @@ export class PermissionBridge {
     private readonly post: (msg: HostToWebview) => void,
     private readonly log: Logger,
     private readonly edits: PendingEditManager,
+    private readonly promptHooks: PromptActivationHooks,
   ) {}
 
   setMode(mode: PermissionMode): void {
@@ -91,6 +110,14 @@ export class PermissionBridge {
     const questions = toolName === ASK_USER_QUESTION ? parseQuestions(input) : undefined;
     if (questions?.length) {
       return this.askQuestions(input, questions, options.signal);
+    }
+
+    // The instruction-prompt signal is intercepted in EVERY mode — it is not
+    // an authorization but a routing event: the prompt's instructions must
+    // ride the system prompt of a re-anchored session, never this call's
+    // result, so the call itself is always denied with the outcome attached.
+    if (toolName === LOAD_INSTRUCTIONS_TOOL) {
+      return this.promptActivation(input, options.signal);
     }
 
     // Snapshot an edit target *before* any allow below can release the tool to
@@ -158,6 +185,74 @@ export class PermissionBridge {
     }
     return result;
   };
+
+  /**
+   * The `load_instructions` interception: show the prompt-activation card
+   * (or skip it for auto prompts / bypassPermissions) and hand the outcome
+   * to the SessionManager hooks. Always returns `deny` — on activation the
+   * session is about to be interrupted and re-anchored, so the current turn
+   * must end either way; the deny message tells the model which way it went.
+   */
+  private async promptActivation(
+    input: Record<string, unknown>,
+    signal: AbortSignal | undefined,
+  ): Promise<PermissionResult> {
+    const prompt = typeof input['prompt'] === 'string' ? input['prompt'] : '';
+    const entry = this.promptHooks.lookup(prompt);
+    if (!entry) {
+      return { behavior: 'deny', message: `Unknown instruction prompt "${prompt}".` };
+    }
+
+    const activated: PermissionResult = {
+      behavior: 'deny',
+      message:
+        `Instruction prompt "${prompt}" is being activated. The conversation is being re-issued ` +
+        "with the prompt's instructions in effect — end this turn without " +
+        'answering the original request.',
+    };
+
+    // bypassPermissions opted out of confirmations; auto prompts opted out per-prompt.
+    if (this.mode === 'bypassPermissions' || this.promptHooks.isAuto(prompt)) {
+      this.promptHooks.onActivate(prompt, false);
+      return activated;
+    }
+
+    const id = `prof-${++this.seq}`;
+    const request: PermissionRequest = {
+      id,
+      toolName: LOAD_INSTRUCTIONS_TOOL,
+      input,
+      title: entry.name,
+      promptActivation: { prompt, name: entry.name, description: entry.description },
+    };
+
+    const decision = await new Promise<PermissionDecision>((resolve) => {
+      this.pending.set(id, { resolve });
+      this.post({ type: 'permissionRequest', request });
+      if (signal) {
+        signal.addEventListener('abort', () => this.resolve(id, { behavior: 'deny', message: 'Aborted' }), {
+          once: true,
+        });
+      }
+    });
+
+    if (decision.behavior === 'allow') {
+      this.promptHooks.onActivate(prompt, decision.remember === true);
+      return activated;
+    }
+    // A bare deny is the card's "Cancel request" button; a deny with a message
+    // is plumbing (abort, session teardown via cancelAll) — no user intent.
+    if (decision.message === undefined) {
+      this.promptHooks.onCancel(prompt);
+      return {
+        behavior: 'deny',
+        message:
+          `The user declined to activate instruction prompt "${prompt}" and cancelled the ` +
+          'request. Do not answer the original request; end this turn.',
+      };
+    }
+    return { behavior: 'deny', message: decision.message };
+  }
 
   /**
    * Render a choice card and wait for the user to pick. The answers ride back

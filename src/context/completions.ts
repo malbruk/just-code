@@ -19,6 +19,11 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/doctor', description: 'Check the health of your Just Code installation' },
   { name: '/help', description: 'Show help and the list of available commands' },
   { name: '/init', description: 'Initialize the project with a CLAUDE.md guide' },
+  {
+    name: '/instructions',
+    description: 'Configure the extension instructions and profiles',
+    aliases: ['instruction profiles', 'profiles'],
+  },
   { name: '/login', description: 'Sign in with your Claude account or API key' },
   { name: '/logout', description: 'Sign out of your Claude account' },
   { name: '/mcp', description: 'Manage MCP server connections' },

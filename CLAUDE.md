@@ -60,15 +60,37 @@ There is no unit-test runner; verify with the scripts below.
   real turn. Extend it when adding a client-side slash command.
 - `node scratch/instructions-tool-test.mjs` — bundles `src/agent/instructions/server.ts`,
   registers the in-process MCP server on a live `query()` (exactly as `buildOptions`
-  does), and asserts `load_instructions` is exposed, executes without a permission
-  prompt, and injects the profile text into the conversation.
+  does), and asserts `load_instructions` is exposed, executes, ACKS the activation
+  signal, and never carries the prompt text (which rides only the system prompt).
 - `node scratch/instructions-registry-test.mjs` — bundles the registry/server +
-  `systemPrompt.ts` with no live query: pins the `load_instructions` handler's output
-  for a known profile and the `isError` path for an unknown one (unreachable via a
-  live model call, since the zod enum schema rejects a bad profile first), the
-  generated tool description containing every profile's trigger, and the
-  `{{INSTRUCTION_PROFILES}}` slot being fully replaced. Run both after touching
-  `agent/instructions/**` or `agent/system{P,-p}rompt*`.
+  `systemPrompt.ts` with no live query: pins the generic fs registry (frontmatter
+  parsing, `profiles/<id>/profile.md` + prompt layout), the signal tool's ack +
+  description tracking the *advertised* set, and `buildSystemPromptAppend` —
+  profile system prompt leading the append, routing section from the advertised
+  set, active prompts inlined in full, and base mode = the channel-neutral
+  general principles with no profile/prompt sections. Run both
+  after touching `agent/instructions/**`, `agent/prompts/**`, or
+  `agent/system{P,-p}rompt*`.
+- `node scratch/profile-activation-test.js` — drives the real
+  `PermissionBridge.canUseTool` with a stubbed `vscode`: the `load_instructions`
+  interception — card shape, activate / always / cancel outcomes and their hook
+  calls (including the `lookup` hook that resolves prompt ids within the active
+  profile), auto prompts, bypassPermissions, plan mode, and the plumbing-deny
+  path (`cancelAll`) that must not count as a user cancel. Run after touching
+  `tools/permissions.ts` or the activation flow.
+- `node scratch/instructions-dialog-test.mjs` — renders `webview-ui/src/instructions.ts`
+  (the `/instructions` dialog) against the DOM shim: markup/escaping, the
+  Base/Profile mode toggle, the work-profile radio picker, per-prompt checkboxes,
+  and the exact `updateInstructionSettings` payloads (scoped
+  `<profile>/<prompt>` keys). Run after touching the dialog or the
+  instruction-settings protocol messages.
+- `node scratch/content-preservation-test.mjs` — behavioral anchor for the
+  sanitization prompt's "User content is inviolable" rule: a live `query()`
+  built like a post-activation session (prompt ACTIVE — profile system prompt +
+  full prompt text in the system-prompt append, no signal tool) redesigns a
+  temp-workspace page whose existing copy sits in the restricted categories, and
+  asserts every original string survives verbatim. Live and nondeterministic.
+  Run after changing any profile/prompt `.md` text.
 - Native binary / auth path: `node -e` resolving `@anthropic-ai/claude-agent-sdk-<plat>/claude(.exe)`
   and running `claude auth status --json` (see git history / scratch for the exact snippet).
 
@@ -146,7 +168,7 @@ will let an IntelliJ plugin reuse the same core via a Node sidecar.
   `q.interrupt()`, `q.setModel()`, `q.setPermissionMode()`. The consume loop maps
   `SDKMessage`s → protocol messages (see `docs/SDK-NOTES.md` for exact message shapes).
 - Options use the `claude_code` presets for `systemPrompt` (plus an `append` of
-  `src/agent/system-prompt.md`) and `tools`.
+  `src/agent/prompts/system-prompt.md`) and `tools`.
 - `settingSources: ['user', 'project', 'local']`, gated on the `loadProjectSettings`
   setting. **All three are required.** `user` (`~/.claude/settings.json`) is where
   globally-configured MCP servers live; passing only `['project']` silently drops them.
@@ -202,16 +224,49 @@ Host (`src/`):
 - `agent/config.ts` — reads settings, resolves auth, builds SDK `Options`
   (pins `pathToClaudeCodeExecutable` to the resolved binary).
 - `agent/cli.ts` — resolves & drives the native `claude` binary for auth.
-- `agent/instructions/` — on-demand instruction profiles. `registry.ts` holds the
-  `PROFILES` map (each entry: `trigger` — the load condition, composed into both
-  the system prompt and the tool description — and `text`), plus `getProfile`/
-  `frame`, exported for tests. `server.ts` builds the in-process SDK MCP server
-  exposing `load_instructions` (`createInstructionsServer`); `instructionsToolDescription`
-  and the `handleLoadInstructions` handler are also exported for tests. Adding a
-  profile is a new `.md` under `agent/prompts/` + one entry in `PROFILES` — the
-  `{{INSTRUCTION_PROFILES}}` slot in `system-prompt.md` (filled by `systemPrompt.ts`)
-  and the tool description regenerate from the registry automatically, so nothing
-  else needs to change. `load_instructions` is auto-allowed in `tools/permissions.ts`.
+- `agent/instructions/` — work profiles + on-demand instruction prompts, two
+  layers: a **profile** is a work domain (coding, accounting, …; exactly one
+  active at a time, its system prompt applies to every new session) and a
+  **prompt** is an on-demand instruction set under a profile (the activation
+  flow below). `registry.ts` loads everything *generically* from
+  `agent/prompts/profiles/<profile-id>/` — `profile.md` (SKILL.md-style YAML
+  frontmatter `name`/`description` + body = the profile's system prompt) and
+  sibling `<prompt-id>.md` files (frontmatter + body = the prompt text). The
+  registry reads the tree from `dist/prompts/profiles` at runtime (`esbuild.js`
+  copies it on every build; `setProfilesRoot`/`JUST_CODE_PROFILES_ROOT`
+  redirect it in tests). Adding a profile or prompt is a pure content change —
+  drop the `.md` in place and rebuild; the marker-delimited sections of
+  `prompts/system-prompt.md` (composed by `systemPrompt.ts`'s
+  `buildSystemPromptAppend(profile, advertised, active)`) and the tool
+  description regenerate from the registry automatically. The frontmatter
+  `description` states what requests the prompt applies to — it is the single
+  routing source of truth. `server.ts` builds the in-process SDK MCP server
+  exposing `load_instructions` (`createInstructionsServer(advertised)`).
+  - **Delivery model (critical):** `load_instructions` is a *signal*, not a
+    loader — prompt text must NEVER travel through a tool result (untrusted
+    channel; models dismiss instruction-bearing tool results as prompt
+    injection). `tools/permissions.ts` intercepts every call (all modes) and
+    shows the activation card (prompt ids resolve via the `lookup` hook, which
+    the SessionManager binds to the active profile); on approval
+    `SessionManager.applyPrompt` marks the prompt active, restarts the query
+    with `resume`, inlines the prompt's full text into the system-prompt
+    append, and silently re-issues the interrupted prompt
+    (`AgentSession.resend`). Cancelling interrupts the turn with a visible
+    system note. Active prompts are per-conversation state
+    (`SessionManager.activePrompts`), reset on new/loaded chat.
+  - **Extension-wide configuration** (`/instructions` dialog in the webview /
+    header shield button, backed by four `application`-scoped settings):
+    `just-code.instructionsMode` (`base` = the general base principles only, no
+    profile; `profiles` = default), `just-code.activeProfile` (the selected work
+    profile, default `coding`), `just-code.instructionPrompts` (boolean map
+    keyed `<profile-id>/<prompt-id>`; a missing key means *enabled*, so new
+    prompts are on by default and need no manifest change), and
+    `just-code.autoActivatePrompts` (scoped keys of prompts that activate
+    without the card; also set by the card's "Always activate").
+    `readConfig()` derives `enabledPrompts` for the active profile;
+    `splitPrompts` (config.ts) splits them into advertised vs active, and with
+    nothing advertised the server is not registered at all. Changes apply to
+    the next new chat.
 - `tools/permissions.ts` — `canUseTool` bridge → `permissionRequest` / awaits decision.
 - `tools/diff.ts` — pre-edit snapshots, applied-diff compute, accept/reject, native
   diff editor, `just-code.hasPendingEdits` context key.
@@ -236,6 +291,11 @@ Webview (`webview-ui/src/`):
   into the prompt on submit), model/mode pickers, usage, send/stop.
 - `account.ts` — the "Account & usage" dialog (account rows, per-window meters, the
   Day/Week "what's contributing" breakdown). Opened from the `/` menu and the banner.
+- `instructions.ts` — the "Instructions" dialog (the header's shield button or
+  `/instructions`): the Base/Profile mode toggle, the work-profile radio picker,
+  and per-prompt checkboxes; presentation only, the host persists to the
+  `just-code.instructionsMode` / `just-code.activeProfile` /
+  `just-code.instructionPrompts` / `just-code.autoActivatePrompts` settings.
 - `markdown.ts` — small self-contained renderer (HTML-escaped). `icons.ts`, `vscode.ts`.
 
 Relative imports across the two halves use explicit `.js` extensions

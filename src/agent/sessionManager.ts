@@ -8,6 +8,8 @@ import type {
   ChatMessage,
   EffortLevel,
   HostToWebview,
+  InstructionSettings,
+  InstructionsMode,
   ModelId,
   PermissionMode,
   RateLimitWarning,
@@ -26,9 +28,11 @@ import {
   getWorkspaceRoot,
   readConfig,
   resolveApiKey,
+  splitPrompts,
   storeApiKey,
 } from './config';
 import { createInstructionsServer } from './instructions/server';
+import { getPrompt, loadProfiles, promptKey } from './instructions/registry';
 import {
   clearBinaryCache,
   getAuthStatus,
@@ -122,6 +126,12 @@ export class SessionManager implements vscode.Disposable {
   private firstPromptText: string | undefined;
   private titleAttempted = false;
   private loginSession: LoginSession | undefined;
+  // Instruction prompts activated for the current conversation. Their text is
+  // inlined into the system prompt on every (re)build; reset on new/loaded chat.
+  private readonly activePrompts = new Set<string>();
+  // The last prompt actually enqueued (post-expansion), so the instruction-prompt
+  // activation flow can re-issue it verbatim on the re-anchored session.
+  private lastSubmission: { promptText: string; images: ImageInput[] } | undefined;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -133,7 +143,23 @@ export class SessionManager implements vscode.Disposable {
     this.effort = cfg.effort;
     this.extendedThinking = cfg.extendedThinking;
     this.autoModelFallback = cfg.autoModelFallback;
-    this.permissions = new PermissionBridge((m) => this.post(m), log, this.edits);
+    this.permissions = new PermissionBridge((m) => this.post(m), log, this.edits, {
+      // Prompt ids are scoped to the active work profile — resolve and store
+      // them under `<profile>/<prompt>` keys.
+      lookup: (prompt) => {
+        const p = getPrompt(this.activeProfileId(), prompt);
+        return p && { name: p.name, description: p.description };
+      },
+      isAuto: (prompt) =>
+        vscode.workspace
+          .getConfiguration('just-code')
+          .get<string[]>('autoActivatePrompts', [])
+          .includes(promptKey(this.activeProfileId(), prompt)),
+      onActivate: (prompt, always) =>
+        void this.applyPrompt(prompt, always).catch((err) => this.log.error('Prompt activation failed', err)),
+      onCancel: (prompt) =>
+        void this.cancelForPrompt(prompt).catch((err) => this.log.error('Prompt cancel failed', err)),
+    });
     this.permissions.setMode(this.permissionMode);
     this.editorTracker = new EditorContextTracker((m) => this.post(m));
     void this.refreshAuth();
@@ -264,6 +290,12 @@ export class SessionManager implements vscode.Disposable {
       case 'requestAccountUsage':
         await this.sendAccountUsage();
         return;
+      case 'requestInstructionSettings':
+        this.sendInstructionSettings();
+        return;
+      case 'updateInstructionSettings':
+        await this.updateInstructionSettings(msg.mode, msg.activeProfile, msg.disabled, msg.auto);
+        return;
       case 'signOut':
         await this.signOut();
         return;
@@ -292,6 +324,12 @@ export class SessionManager implements vscode.Disposable {
     const cfg = readConfig();
     const apiKey = cfg.authMethod === 'apiKey' ? await resolveApiKey(this.context) : undefined;
     const abortController = new AbortController();
+    // Advertised prompts ride the signal tool; activated ones ride the system
+    // prompt (buildOptions inlines them via the same splitPrompts call).
+    const { advertised } = splitPrompts(cfg.enabledPrompts, [...this.activePrompts]);
+    const advertisedPrompts = advertised
+      .map((id) => getPrompt(cfg.activeProfile, id))
+      .filter((p): p is NonNullable<typeof p> => p !== undefined);
     const options = buildOptions({
       config: cfg,
       authMethod: cfg.authMethod,
@@ -302,7 +340,8 @@ export class SessionManager implements vscode.Disposable {
       extendedThinking: this.extendedThinking,
       autoModelFallback: this.autoModelFallback,
       canUseTool: this.permissions.canUseTool,
-      instructionsServer: await createInstructionsServer(),
+      instructionsServer: advertisedPrompts.length > 0 ? await createInstructionsServer(advertisedPrompts) : undefined,
+      activePrompts: [...this.activePrompts],
       abortController,
       resume: resumeId,
       log: (d) => this.log.raw(d),
@@ -364,6 +403,8 @@ export class SessionManager implements vscode.Disposable {
     this.pendingResume = undefined;
     this.pendingMessages = undefined;
     this.permissions.cancelAll('New chat');
+    this.activePrompts.clear();
+    this.lastSubmission = undefined;
     this.usage = undefined;
     this.sessionTitle = undefined;
     this.firstPromptText = undefined;
@@ -467,7 +508,58 @@ export class SessionManager implements vscode.Disposable {
       createdAt: Date.now(),
     };
     const session = await this.ensureSession();
+    // Remembered for the prompt-activation flow, which re-issues the prompt
+    // verbatim on the re-anchored session.
+    this.lastSubmission = { promptText, images };
     session.submit(message, promptText, images);
+  }
+
+  // --- instruction-prompt activation -----------------------------------------
+
+  /** The active work profile's id, as currently configured. */
+  private activeProfileId(): string {
+    return vscode.workspace.getConfiguration('just-code').get<string>('activeProfile', 'coding');
+  }
+
+  /**
+   * The user approved activating instruction prompt `prompt` (or it is set to
+   * auto-activate): mark it active for this conversation, tear down the
+   * running query, rebuild it with `resume` — the prompt's full text now rides
+   * the system prompt — and re-issue the interrupted prompt. Transparency: a
+   * system note in the transcript records what happened and why.
+   */
+  private async applyPrompt(prompt: string, always: boolean): Promise<void> {
+    if (always) {
+      const cfg = vscode.workspace.getConfiguration('just-code');
+      const auto = cfg.get<string[]>('autoActivatePrompts', []);
+      const key = promptKey(this.activeProfileId(), prompt);
+      if (!auto.includes(key)) {
+        await cfg.update('autoActivatePrompts', [...auto, key], vscode.ConfigurationTarget.Global);
+      }
+    }
+    this.activePrompts.add(prompt);
+
+    const resumeId = this.session?.sessionId;
+    const messages = this.session ? [...this.session.messages] : undefined;
+    const last = this.lastSubmission;
+    await this.session?.interrupt();
+
+    this.postSystem(
+      `Instruction prompt **\`${prompt}\`** activated — its instructions were applied to this ` +
+        'conversation and your request is being re-run under them.',
+    );
+
+    const session = await this.ensureSession(resumeId, messages);
+    if (last) session.resend(last.promptText, last.images);
+  }
+
+  /** The user declined the prompt card: stop the turn and say so, visibly. */
+  private async cancelForPrompt(prompt: string): Promise<void> {
+    await this.session?.interrupt();
+    this.postSystem(
+      `Request cancelled — it matched instruction prompt **\`${prompt}\`**, which you chose ` +
+        'not to activate. You can rephrase your request or manage instruction prompts via `/instructions`.',
+    );
   }
 
   // --- slash commands ------------------------------------------------------
@@ -545,6 +637,11 @@ export class SessionManager implements vscode.Disposable {
         // The dialog asks for its own data once it's open, so there is nothing
         // to fetch here — and nothing to echo, as with the other UI commands.
         this.post({ type: 'openAccountDialog' });
+        return 'handled';
+
+      case '/instructions':
+        // Same shape as /usage: the dialog requests its own data once open.
+        this.post({ type: 'openInstructionsDialog' });
         return 'handled';
 
       case '/doctor':
@@ -1112,6 +1209,8 @@ export class SessionManager implements vscode.Disposable {
       this.session?.dispose();
       this.session = undefined;
       this.permissions.cancelAll('Switched session');
+      this.activePrompts.clear();
+      this.lastSubmission = undefined;
       this.usage = undefined;
       this.sessionTitle = undefined;
       this.firstPromptText = undefined;
@@ -1225,6 +1324,76 @@ export class SessionManager implements vscode.Disposable {
     if (before?.message === warning?.message && before?.severity === warning?.severity) return;
     this.rateLimitWarning = warning;
     this.post({ type: 'rateLimitWarning', warning });
+  }
+
+  // --- work profiles & instruction prompts (the `/instructions` dialog) -----
+
+  /** The current extension-wide instruction configuration, as the dialog renders it. */
+  private instructionSettings(): InstructionSettings {
+    const cfg = vscode.workspace.getConfiguration('just-code');
+    const map = cfg.get<Record<string, boolean>>('instructionPrompts', {});
+    const auto = cfg.get<string[]>('autoActivatePrompts', []);
+    return {
+      mode: cfg.get<InstructionsMode>('instructionsMode', 'profiles'),
+      activeProfile: this.activeProfileId(),
+      // Checkbox state comes from the per-prompt map alone — in `base` mode
+      // (or under another profile) the prompts are inert, but their stored
+      // on/off state still shows.
+      profiles: Object.values(loadProfiles()).map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        description: profile.description,
+        prompts: profile.promptIds.map((id) => {
+          const key = promptKey(profile.id, id);
+          const p = profile.prompts[id]!;
+          return {
+            id,
+            name: p.name,
+            description: p.description,
+            enabled: map[key] !== false,
+            auto: auto.includes(key),
+          };
+        }),
+      })),
+    };
+  }
+
+  /** Answer the webview's `requestInstructionSettings`. */
+  private sendInstructionSettings(): void {
+    this.post({ type: 'instructionSettings', settings: this.instructionSettings() });
+  }
+
+  /**
+   * Persist the dialog's `updateInstructionSettings` into the extension-wide
+   * (`application`-scoped) settings, then echo the resulting state back.
+   * Takes effect on the next new chat (`ensureSession` re-reads the config).
+   * `disabled` / `auto` carry `<profile-id>/<prompt-id>` keys.
+   */
+  private async updateInstructionSettings(
+    mode: InstructionsMode,
+    activeProfile: string,
+    disabled: string[],
+    auto: string[],
+  ): Promise<void> {
+    const cfg = vscode.workspace.getConfiguration('just-code');
+    const profiles = loadProfiles();
+    const validKey = (key: string) => {
+      const [profileId, promptId] = key.split('/', 2);
+      return !!profileId && !!promptId && profiles[profileId]?.prompts[promptId] !== undefined;
+    };
+    const map: Record<string, boolean> = {};
+    for (const key of disabled) if (validKey(key)) map[key] = false;
+    try {
+      await cfg.update('instructionsMode', mode, vscode.ConfigurationTarget.Global);
+      if (profiles[activeProfile]) {
+        await cfg.update('activeProfile', activeProfile, vscode.ConfigurationTarget.Global);
+      }
+      await cfg.update('instructionPrompts', map, vscode.ConfigurationTarget.Global);
+      await cfg.update('autoActivatePrompts', auto.filter(validKey), vscode.ConfigurationTarget.Global);
+    } catch (err) {
+      this.log.error('Failed to update instruction settings', err);
+    }
+    this.sendInstructionSettings();
   }
 
   // --- auth ----------------------------------------------------------------

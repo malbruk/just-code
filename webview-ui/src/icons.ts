@@ -99,6 +99,10 @@ export const folder = (): string =>
 
 export const close = (): string => svg(stroke('M6 6l12 12M18 6L6 18'), 12);
 
+/** Shield — the "Instructions" (protection/policy) header button. */
+export const shield = (size = 14): string =>
+  svg(stroke('M12 3l7 3v5.5c0 4.4-2.9 7.6-7 9.5-4.1-1.9-7-5.1-7-9.5V6l7-3z'), size);
+
 export const clock = (size = 14): string =>
   svg(
     '<circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/>' +

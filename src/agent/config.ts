@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import type { CanUseTool, McpSdkServerConfigWithInstance, Options, ThinkingConfig } from '@just-code/core/agent/sdk.js';
-import type { AuthMethod, EffortLevel, ModelId, PermissionMode } from '@just-code/core';
+import type { AuthMethod, EffortLevel, InstructionsMode, ModelId, PermissionMode } from '@just-code/core';
 import { INSTRUCTIONS_SERVER_NAME } from '@just-code/core';
 import { installHint, resolveClaudeBinary } from './cli';
-import { SYSTEM_PROMPT_APPEND } from './systemPrompt';
+import { getWorkProfile, promptKey, type InstructionPrompt, type WorkProfile } from './instructions/registry';
+import { buildSystemPromptAppend } from './systemPrompt';
 
 const SECRET_KEY = 'just-code.apiKey';
 
@@ -30,11 +31,63 @@ export interface HostConfig {
   autoModelFallback: boolean;
   additionalDirectories: string[];
   loadProjectSettings: boolean;
+  /** Extension-wide instruction source: base only, or the active work profile. */
+  instructionsMode: InstructionsMode;
+  /**
+   * The selected work profile's id (`just-code.activeProfile`). Exactly one
+   * profile is in effect at a time; its system prompt is appended to every
+   * new session in `profiles` mode. May name a profile this build does not
+   * ship — then it resolves to no profile at all.
+   */
+  activeProfile: string;
+  /**
+   * The instruction prompts in effect for new sessions: every prompt of the
+   * active profile not switched off in `just-code.instructionPrompts`, or
+   * empty in `base` mode. Empty ⇒ no prompts section in the system prompt and
+   * no `load_instructions` server.
+   */
+  enabledPrompts: string[];
+}
+
+/**
+ * Resolve the work profile a session runs under: the selected profile in
+ * `profiles` mode, none in `base` mode (or when the id is unknown).
+ */
+export function resolveProfile(mode: InstructionsMode, activeProfile: string): WorkProfile | undefined {
+  return mode === 'profiles' ? getWorkProfile(activeProfile) : undefined;
+}
+
+/**
+ * Compute the enabled-prompt set from the instruction settings: every prompt
+ * of the active profile whose `<profile>/<prompt>` entry in the per-prompt map
+ * is not `false` (missing means enabled, so new prompts are on by default);
+ * none in `base` mode.
+ */
+export function enabledPromptsFrom(mode: InstructionsMode, activeProfile: string, promptMap: Record<string, boolean>): string[] {
+  const profile = resolveProfile(mode, activeProfile);
+  if (!profile) return [];
+  return profile.promptIds.filter((id) => promptMap[promptKey(profile.id, id)] !== false);
+}
+
+/**
+ * Split the enabled prompts for a session: `active` = activated for this
+ * conversation (full text inlined in the system prompt), `advertised` = the
+ * rest (offered for routing via the signal tool). A prompt disabled in
+ * settings is dropped from both, even if it was activated earlier.
+ */
+export function splitPrompts(
+  enabled: readonly string[],
+  activated: readonly string[],
+): { advertised: string[]; active: string[] } {
+  const active = activated.filter((p) => enabled.includes(p));
+  return { advertised: enabled.filter((p) => !active.includes(p)), active };
 }
 
 /** Read the current `just-code.*` settings snapshot. */
 export function readConfig(): HostConfig {
   const cfg = vscode.workspace.getConfiguration('just-code');
+  const instructionsMode = cfg.get<InstructionsMode>('instructionsMode', 'profiles');
+  const activeProfile = cfg.get<string>('activeProfile', 'coding');
   return {
     model: cfg.get<ModelId>('model', 'default'),
     permissionMode: cfg.get<PermissionMode>('permissionMode', 'default'),
@@ -46,6 +99,9 @@ export function readConfig(): HostConfig {
     autoModelFallback: cfg.get<boolean>('autoModelFallback', false),
     additionalDirectories: cfg.get<string[]>('additionalDirectories', []),
     loadProjectSettings: cfg.get<boolean>('loadProjectSettings', true),
+    instructionsMode,
+    activeProfile,
+    enabledPrompts: enabledPromptsFrom(instructionsMode, activeProfile, cfg.get<Record<string, boolean>>('instructionPrompts', {})),
   };
 }
 
@@ -98,8 +154,18 @@ export interface BuildOptionsArgs {
   /** Live fallback-model toggle (overrides `config.autoModelFallback`). */
   autoModelFallback: boolean;
   canUseTool: CanUseTool;
-  /** The per-session instruction-profiles server (see `instructions.ts`). */
-  instructionsServer: McpSdkServerConfigWithInstance;
+  /**
+   * The per-session instruction-prompts server (see `instructions/`).
+   * Absent when no prompt is advertised — then `load_instructions` simply
+   * does not exist for the session.
+   */
+  instructionsServer?: McpSdkServerConfigWithInstance;
+  /**
+   * Instruction prompts the user activated for this conversation: their full
+   * text is inlined into the system-prompt append, and they are excluded from
+   * the advertised (routing) list.
+   */
+  activePrompts: string[];
   abortController: AbortController;
   resume?: string;
   log: (data: string) => void;
@@ -134,20 +200,28 @@ export function buildEnv(authMethod: AuthMethod, apiKey?: string): Record<string
 
 /** Assemble the SDK `Options` for a `query()` call. */
 export function buildOptions(args: BuildOptionsArgs): Options {
-  const { config, authMethod, apiKey, model, permissionMode, effort, extendedThinking, autoModelFallback, canUseTool, instructionsServer, abortController, resume, log } = args;
+  const { config, authMethod, apiKey, model, permissionMode, effort, extendedThinking, autoModelFallback, canUseTool, instructionsServer, activePrompts, abortController, resume, log } = args;
   const root = getWorkspaceRoot();
   const env = buildEnv(authMethod, apiKey);
+  const profile = resolveProfile(config.instructionsMode, config.activeProfile);
+  const { advertised, active } = splitPrompts(config.enabledPrompts, activePrompts);
+  // `enabledPrompts` was derived from the same registry, so the lookups hold;
+  // dropping a miss beats crashing session start on a stale settings entry.
+  const resolve = (ids: string[]) =>
+    ids.map((id) => profile?.prompts[id]).filter((p): p is InstructionPrompt => p !== undefined);
+  const append = buildSystemPromptAppend(profile, resolve(advertised), resolve(active));
 
   const options: Options = {
     cwd: root,
-    systemPrompt: SYSTEM_PROMPT_APPEND
-      ? { type: 'preset', preset: 'claude_code', append: SYSTEM_PROMPT_APPEND }
+    systemPrompt: append
+      ? { type: 'preset', preset: 'claude_code', append }
       : { type: 'preset', preset: 'claude_code' },
     tools: { type: 'preset', preset: 'claude_code' },
-    // The extension's own in-process server (on-demand instruction profiles).
-    // This map is separate from the `.mcp.json` / settings-file servers, which
-    // arrive via `settingSources` below — it does not override them.
-    mcpServers: { [INSTRUCTIONS_SERVER_NAME]: instructionsServer },
+    // The extension's own in-process server (on-demand instruction prompts),
+    // absent when no profile is enabled. This map is separate from the
+    // `.mcp.json` / settings-file servers, which arrive via `settingSources`
+    // below — it does not override them.
+    mcpServers: instructionsServer ? { [INSTRUCTIONS_SERVER_NAME]: instructionsServer } : {},
     // All three sources, not just 'project'. `user` (~/.claude/settings.json)
     // is where globally-configured MCP servers live — with only `project` they
     // are silently missing. `local` (.claude/settings.local.json) holds the

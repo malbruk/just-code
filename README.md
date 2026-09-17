@@ -26,11 +26,14 @@ name, comment, or string literal whose *content* is out of scope is declined eve
 its wrapper is perfectly technical. Anything off-topic gets one answer, and it is always
 the same one.
 
-The policy is not a hidden filter. It is roughly ten lines of plain English in a single
-file, [`src/agent/system-prompt.md`](src/agent/system-prompt.md), so you can read it,
-tighten it, or adapt it to your organisation instead of trusting it blindly. It is a
-strong instruction to the model rather than a hard technical guarantee, and it is written
-to be audited on that basis.
+The policy is not a hidden filter. It is a handful of lines of plain English in two
+files: the channel-neutral general principles in
+[`src/agent/prompts/system-prompt.md`](src/agent/prompts/system-prompt.md), and the
+default *coding* work profile's specialization in
+[`src/agent/prompts/profiles/coding/profile.md`](src/agent/prompts/profiles/coding/profile.md) —
+so you can read it, tighten it, or adapt it to your organisation instead of trusting it
+blindly. It is a strong instruction to the model rather than a hard technical guarantee,
+and it is written to be audited on that basis.
 
 The result is an agent that is a development tool and nothing else — suited to teams and
 organisations that want agentic coding assistance without a general-purpose chatbot
@@ -40,6 +43,19 @@ inside the editor.
 
 - **Scoped to development** — an auditable policy file keeps the assistant on code and
   technical subjects, and declines everything else.
+- **Work profiles & instruction prompts** — two configurable layers. A *work profile*
+  is a work domain (coding, accounting, …; exactly one is active at a time) whose own
+  system prompt shapes every new chat. Under each profile live on-demand *instruction
+  prompts* — `.md` files with SKILL.md-style YAML frontmatter (`name`, `description`),
+  loaded generically by the registry. When a request matches an enabled prompt's
+  description, a card in the chat asks whether to activate it; activating applies the
+  prompt's instructions to the conversation (delivered through the system prompt, for
+  full authority) and re-runs the request, with a visible note in the transcript. The
+  header's shield button (or `/instructions`) opens a dialog to switch between base
+  instructions and a work profile, pick the profile, enable or disable each of its
+  prompts, and mark prompts as auto-activating (extension-wide, applies to new chats;
+  stored in the `just-code.instructionsMode`, `just-code.activeProfile`,
+  `just-code.instructionPrompts`, and `just-code.autoActivatePrompts` settings).
 - **Agentic chat panel** in the activity bar (and openable in an editor tab), with the
   SDK's full toolset (Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Web, TodoWrite,
   Task/subagents, …).
@@ -130,6 +146,10 @@ setting):
 | `just-code.effort` | `default` | Reasoning effort level. |
 | `just-code.autoModelFallback` | `false` | Fall back to another model when the primary fails. |
 | `just-code.additionalDirectories` | `[]` | Extra directories the agent may access. |
+| `just-code.instructionsMode` | `profiles` | `base` (no work profile) or `profiles` (the active work profile + its prompts). |
+| `just-code.activeProfile` | `coding` | The work profile in effect (exactly one at a time). Edit via `/instructions`. |
+| `just-code.instructionPrompts` | `{}` | Per-prompt enable map (`<profile>/<prompt>` keys); a missing prompt is enabled. Edit via `/instructions`. |
+| `just-code.autoActivatePrompts` | `[]` | Prompts that activate without the confirmation card. Edit via `/instructions`. |
 | `just-code.loadProjectSettings` | `true` | Load user/project/local settings — enables `CLAUDE.md` and MCP servers. |
 
 ### MCP
@@ -169,7 +189,7 @@ src/
   extension.ts            activation, command registration, context wiring
   panel/chatViewProvider  WebviewViewProvider + editor-tab panel; HTML/CSP/bridge
   agent/                  Agent SDK integration (streaming-input query loop)
-  agent/system-prompt.md  the scope policy  ← what makes this Just Code
+  agent/prompts/          work profiles + instruction prompts (frontmatter .md)  ← what makes this Just Code
   tools/                  canUseTool permission bridge, diff compute & review
   context/                editor context tracking, @-file / slash completions
   history/                session list & resume via the SDK

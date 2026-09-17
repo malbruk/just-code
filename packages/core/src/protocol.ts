@@ -273,17 +273,50 @@ export interface QuestionSpec {
 export const OTHER_OPTION_LABEL = 'Other';
 
 /**
- * The extension's in-process MCP server ("instruction profiles"): the model
- * calls its `load_instructions` tool to pull an extended instruction prompt
- * into the conversation on demand, instead of every conversation paying for
- * those instructions in the system prompt. The names are shared here because
- * the host registers the server (`src/agent/instructions.ts`), the permission
- * bridge auto-allows the tool, and the webview special-cases its card.
+ * The extension's in-process MCP server ("instruction prompts"): the model
+ * calls its `load_instructions` tool to signal that the request matches an
+ * on-demand instruction prompt of the active work profile, instead of every
+ * conversation paying for those instructions in the system prompt. The names
+ * are shared here because the host registers the server
+ * (`src/agent/instructions/server.ts`), the permission bridge intercepts the
+ * tool, and the webview special-cases its card.
  */
 export const INSTRUCTIONS_SERVER_NAME = 'just-code';
 export const LOAD_INSTRUCTIONS_TOOL_NAME = 'load_instructions';
 /** The full tool name as it appears in the SDK stream (`mcp__<server>__<tool>`). */
 export const LOAD_INSTRUCTIONS_TOOL = `mcp__${INSTRUCTIONS_SERVER_NAME}__${LOAD_INSTRUCTIONS_TOOL_NAME}`;
+
+/** Extension-wide instruction source: base only, or the active work profile. */
+export type InstructionsMode = 'base' | 'profiles';
+
+/** One on-demand instruction prompt as shown in the `/instructions` dialog. */
+export interface InstructionPromptView {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  /** Activate automatically, without the confirmation card. */
+  auto: boolean;
+}
+
+/**
+ * One work profile (a work domain — coding, accounting, …) as shown in the
+ * `/instructions` dialog, with its on-demand instruction prompts.
+ */
+export interface InstructionProfileView {
+  id: string;
+  name: string;
+  description: string;
+  prompts: InstructionPromptView[];
+}
+
+/** Everything the "Instructions" dialog renders. */
+export interface InstructionSettings {
+  mode: InstructionsMode;
+  /** The selected work profile's id (exactly one profile is active at a time). */
+  activeProfile: string;
+  profiles: InstructionProfileView[];
+}
 
 /** A pending permission request awaiting user decision. */
 export interface PermissionRequest {
@@ -302,6 +335,14 @@ export interface PermissionRequest {
    * `PermissionDecision.answers` rather than a bare `allow`.
    */
   questions?: QuestionSpec[];
+  /**
+   * Present only for the `load_instructions` tool. When set, the UI renders
+   * the prompt-activation card: activating re-anchors the session with the
+   * instruction prompt inlined in the system prompt and re-runs the request;
+   * denying cancels the request. `allow` + `remember` persists the prompt as
+   * auto-activating.
+   */
+  promptActivation?: { prompt: string; name: string; description: string };
 }
 
 export type PermissionDecision =
@@ -405,7 +446,14 @@ export type HostToWebview =
   /** Show (or, with no `warning`, clear) the plan-limit banner above the composer. */
   | { type: 'rateLimitWarning'; warning?: RateLimitWarning }
   /** Open the "Account & usage" dialog (the `/usage` command). */
-  | { type: 'openAccountDialog' };
+  | { type: 'openAccountDialog' }
+  /** Open the "Instructions" dialog (the `/instructions` command). */
+  | { type: 'openInstructionsDialog' }
+  /**
+   * Answer to `requestInstructionSettings` / `updateInstructionSettings`: the
+   * current extension-wide instruction configuration.
+   */
+  | { type: 'instructionSettings'; settings: InstructionSettings };
 
 export interface CompletionItem {
   label: string;
@@ -510,5 +558,20 @@ export type WebviewToHost =
   | { type: 'signOut' }
   /** Open the "Account & usage" dialog: fetch account + plan-limit data. */
   | { type: 'requestAccountUsage' }
+  /** Fetch the extension-wide instruction configuration (the `/instructions` dialog). */
+  | { type: 'requestInstructionSettings' }
+  /**
+   * Persist the extension-wide instruction configuration (applies to new
+   * chats). `activeProfile` is the selected work profile's id; `disabled`
+   * lists the prompts unchecked in the dialog and `auto` the prompts marked
+   * "activate automatically", both as `<profile-id>/<prompt-id>` keys.
+   */
+  | {
+      type: 'updateInstructionSettings';
+      mode: InstructionsMode;
+      activeProfile: string;
+      disabled: string[];
+      auto: string[];
+    }
   /** Copy text to clipboard via host (webview clipboard is restricted). */
   | { type: 'copy'; text: string };

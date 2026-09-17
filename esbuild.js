@@ -1,5 +1,7 @@
 // Build script for both the extension host bundle and the webview UI bundle.
 const esbuild = require('esbuild');
+const fs = require('fs');
+const path = require('path');
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
@@ -15,6 +17,27 @@ const problemMatcherPlugin = {
         if (location) console.error(`    ${location.file}:${location.line}:${location.column}`);
       }
       console.log('[build] finished');
+    });
+  },
+};
+
+/**
+ * The work-profile / instruction-prompt content is NOT bundled: the registry
+ * (`src/agent/instructions/registry.ts`) scans it from `dist/prompts/profiles`
+ * at runtime (generic, SKILL.md-style frontmatter), so the `.md` tree is copied
+ * next to the host bundle on every build. `dist/**` ships in the VSIX as-is.
+ *
+ * @type {import('esbuild').Plugin}
+ */
+const copyPromptsPlugin = {
+  name: 'copy-prompts',
+  setup(build) {
+    build.onEnd((result) => {
+      if (result.errors.length > 0) return;
+      const src = path.join(__dirname, 'src', 'agent', 'prompts', 'profiles');
+      const dst = path.join(__dirname, 'dist', 'prompts', 'profiles');
+      fs.rmSync(dst, { recursive: true, force: true });
+      fs.cpSync(src, dst, { recursive: true });
     });
   },
 };
@@ -42,7 +65,7 @@ const extensionConfig = {
   sourcemap: !production,
   minify: production,
   logLevel: 'silent',
-  plugins: [problemMatcherPlugin],
+  plugins: [problemMatcherPlugin, copyPromptsPlugin],
 };
 
 /** Webview UI: browser IIFE, no externals. */

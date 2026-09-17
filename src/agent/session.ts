@@ -169,6 +169,22 @@ export class AgentSession {
     this.queue.push(userMsg);
   }
 
+  /**
+   * Re-enqueue an already-submitted prompt without touching the transcript —
+   * no `userMessage` post, no `messages` push. Used by the prompt-activation
+   * flow: the user's turn is already on screen; the re-anchored session only
+   * needs the prompt itself re-issued.
+   */
+  resend(promptText: string, images: ImageInput[] = []): void {
+    if (!this.started) this.start();
+    this.setBusy(true);
+    this.queue.push({
+      type: 'user',
+      message: { role: 'user', content: buildContent(promptText, images) },
+      parent_tool_use_id: null,
+    });
+  }
+
   async interrupt(): Promise<void> {
     try {
       await this.query?.interrupt();

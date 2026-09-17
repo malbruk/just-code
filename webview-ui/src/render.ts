@@ -28,6 +28,7 @@ import {
   globe as globeIcon,
   list as listIcon,
   sparkle as sparkleIcon,
+  shield as shieldIcon,
 } from './icons.js';
 import { logo } from './logo.js';
 import { WorkingIndicator } from './working.js';
@@ -427,7 +428,7 @@ export class Transcript {
     card.setAttribute('data-tool-id', tool.id);
 
     const isBash = /^(bash|shell)$/i.test(tool.name);
-    // The instruction-profile loader gets a minimal card: friendly name instead
+    // The instruction-prompt signal gets a minimal card: friendly name instead
     // of the raw mcp__… identifier, and no input/result body — the returned
     // prompt text is context for the model, not something to show the user.
     const isLoadInstructions = tool.name === LOAD_INSTRUCTIONS_TOOL;
@@ -508,10 +509,15 @@ export class Transcript {
     for (const req of reqs) {
       if (this.permissionsEl.querySelector(`[data-perm-id="${cssEscape(req.id)}"]`)) continue;
       // `AskUserQuestion` is a choice, not an authorization — it gets a card of
-      // its own. Cards are built once and keep their own selection state, so a
-      // re-render never clobbers a half-made choice.
+      // its own, as does the instruction-prompt activation card. Cards are
+      // built once and keep their own selection state, so a re-render never
+      // clobbers a half-made choice.
       this.permissionsEl.appendChild(
-        req.questions?.length ? renderQuestionCard(req) : renderPermissionCard(req),
+        req.questions?.length
+          ? renderQuestionCard(req)
+          : req.promptActivation
+            ? renderPromptCard(req)
+            : renderPermissionCard(req),
       );
     }
   }
@@ -732,6 +738,44 @@ function renderQuestion(q: QuestionSpec, idx: number, cb: QuestionCallbacks): HT
 
   wrap.appendChild(body);
   return wrap;
+}
+
+/**
+ * The instruction-prompt activation card: the request matched a prompt of the
+ * active work profile; activating re-anchors the session with the prompt's
+ * instructions in the system prompt and re-runs the request, "always" also
+ * persists auto-activation for the prompt, and cancelling stops the request
+ * entirely.
+ */
+function renderPromptCard(req: PermissionRequest): HTMLElement {
+  const pa = req.promptActivation!;
+  const card = document.createElement('div');
+  card.className = 'perm-card profile-card';
+  card.setAttribute('data-perm-id', req.id);
+
+  const head = document.createElement('div');
+  head.className = 'perm-head';
+  head.innerHTML =
+    `<span class="perm-icon">${shieldIcon()}</span>` +
+    `<span class="perm-q">Instruction prompt <span class="perm-tool" dir="auto">${escapeHtml(pa.name)}</span></span>`;
+  card.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'profile-card-body';
+  body.innerHTML =
+    `<div class="profile-card-desc" dir="auto">This request matches the prompt's scope: ${escapeHtml(pa.description)}</div>` +
+    `<div class="profile-card-note" dir="auto">Activating applies the prompt's instructions to this conversation ` +
+    `and re-runs your request under them. Cancelling stops the request.</div>`;
+  card.appendChild(body);
+
+  const actions = document.createElement('div');
+  actions.className = 'perm-actions';
+  actions.innerHTML =
+    `<button type="button" class="btn btn-primary" data-perm-decision="allow" data-perm-id="${escapeHtml(req.id)}">Activate &amp; re-run</button>` +
+    `<button type="button" class="btn" data-perm-decision="always" data-perm-id="${escapeHtml(req.id)}">Always activate</button>` +
+    `<button type="button" class="btn btn-ghost" data-perm-decision="deny" data-perm-id="${escapeHtml(req.id)}">Cancel request</button>`;
+  card.appendChild(actions);
+  return card;
 }
 
 function renderPermissionCard(req: PermissionRequest): HTMLElement {
